@@ -74,6 +74,7 @@ import argparse
 import csv
 import json
 from collections import defaultdict
+from dataclasses import dataclass, field
 from pathlib import Path
 
 import numpy as np
@@ -1124,6 +1125,209 @@ def run_flow_tracker(
     )
 
     return detections, flow_seq, tracks, sources, good_sources, false_dets, src_data, src_colors
+
+
+# ---------------------------------------------------------------------------
+# FlowTracker — class-based API
+# ---------------------------------------------------------------------------
+
+@dataclass
+class TrackingResult:
+    """Output of :meth:`FlowTracker.run`.
+
+    Attributes
+    ----------
+    detections : list[ChannelDetection]
+        Per-channel wavelet detections, one entry per processed channel.
+    flow_seq : list of (ch_ref, ch_tgt, flow, joint_mask)
+        TV-L1 optical flow for every consecutive channel pair.
+    tracks : list[dict]
+        All track dicts annotated with ``source_id``, ``displacement``,
+        ``kinematic``, and ``has_split``.
+    sources : list[dict]
+        Real sources only (false detections removed).  Each dict contains
+        ``id``, ``track_ids``, ``channels``, ``n_channels``,
+        ``split_events``, ``merge_events``.
+    false_detections : list[dict]
+        Sources flagged as false positives, kept for inspection.
+    src_data : dict
+        ``{source_id: {flow_iou, wav_abrupt, n_det, …}}`` — per-source
+        classification metrics.
+    src_colors : dict
+        ``{source_id: rgba}`` — tab10 colour assigned to each source.
+    """
+    detections: list
+    flow_seq: list
+    tracks: list
+    sources: list
+    false_detections: list
+    src_data: dict
+    src_colors: dict
+
+
+class FlowTracker:
+    """Full STORM pipeline: wavelet detection → optical flow → track linking
+    → kinematic classification → source grouping → false-detection removal.
+
+    Parameters
+    ----------
+    detector : WaveletDetector or None
+        Wavelet detector instance.  ``None`` uses default settings.
+    min_match_overlap : int
+        Minimum pixel overlap to accept a ghost→blob continuation match.
+    min_split_overlap : int
+        Minimum pixel overlap to attribute an unmatched blob as a split.
+    max_gap_dist : float
+        Maximum centroid distance (px) for the B2 gap-bridging fallback.
+    max_gap_channels : int
+        Maximum consecutive unmatched channels before a track is deactivated.
+    min_displacement : float
+        Minimum cumulative centroid travel (px) to call a track kinematic.
+    wav_scale_idx : int
+        0-based wavelet scale index for source classification metrics.
+    wav_abrupt_thresh : float
+        Abruptness threshold above which a source is flagged as a false
+        detection.
+    flow_iou_thresh : float
+        Flow-IoU threshold below which a short source is flagged as a false
+        detection.
+    short_det_max : int
+        Maximum channel span for the flow-IoU false-detection criterion.
+
+    Examples
+    --------
+    >>> from storm.detect import WaveletDetector
+    >>> from storm.track import FlowTracker
+    >>>
+    >>> detector = WaveletDetector(scales=6, k_sigma=5.0, use_scale=5)
+    >>> tracker  = FlowTracker(detector, min_match_overlap=5)
+    >>> result   = tracker.run(cube, channel_list, verbose=True)
+    >>>
+    >>> result.sources          # real sources
+    >>> result.false_detections # flagged false positives
+    >>> result.tracks           # all individual tracks
+    """
+
+    def __init__(
+        self,
+        detector=None,
+        min_match_overlap: int = 5,
+        min_split_overlap: int = 3,
+        max_gap_dist: float = 15.0,
+        max_gap_channels: int = 5,
+        min_displacement: float = 3.0,
+        wav_scale_idx: int = 3,
+        wav_abrupt_thresh: float = 0.5,
+        flow_iou_thresh: float = 0.25,
+        short_det_max: int = 8,
+    ) -> None:
+        from .detect import WaveletDetector
+        self.detector = detector if detector is not None else WaveletDetector()
+        self.min_match_overlap = min_match_overlap
+        self.min_split_overlap = min_split_overlap
+        self.max_gap_dist = max_gap_dist
+        self.max_gap_channels = max_gap_channels
+        self.min_displacement = min_displacement
+        self.wav_scale_idx = wav_scale_idx
+        self.wav_abrupt_thresh = wav_abrupt_thresh
+        self.flow_iou_thresh = flow_iou_thresh
+        self.short_det_max = short_det_max
+
+    def run(
+        self,
+        cube: np.ndarray,
+        channel_list: list[int] | None = None,
+        vel_array: np.ndarray | None = None,
+        results_dir=None,
+        plot: bool = False,
+        verbose: bool = False,
+    ) -> TrackingResult:
+        """Detect sources in *cube* and run the full tracking pipeline.
+
+        Parameters
+        ----------
+        cube : (n_ch, H, W) float32
+        channel_list : list of int or None
+            Channels to process.  ``None`` processes all channels.
+        vel_array : 1-D array or None
+            Velocity axis (km/s) for plot axis labelling.
+        results_dir : path-like or None
+            Directory for saved figures when ``plot=True``.
+        plot : bool
+            Render and save the false-detection separation figure.
+        verbose : bool
+            Print per-step progress and summary tables.
+
+        Returns
+        -------
+        TrackingResult
+        """
+        detections = self.detector.detect(cube, channel_list)
+        return self.run_from_detections(
+            detections,
+            vel_array=vel_array,
+            results_dir=results_dir,
+            plot=plot,
+            verbose=verbose,
+        )
+
+    def run_from_detections(
+        self,
+        detections: list,
+        vel_array: np.ndarray | None = None,
+        results_dir=None,
+        plot: bool = False,
+        verbose: bool = False,
+    ) -> TrackingResult:
+        """Run the tracking pipeline on pre-computed *detections*.
+
+        Useful when you want to inspect or filter detections before tracking.
+
+        Parameters
+        ----------
+        detections : list[ChannelDetection]
+            Output of :meth:`WaveletDetector.detect`.
+        """
+        flow_seq = compute_flow_sequence(detections, verbose=verbose)
+        tracks = link_tracks(
+            detections, flow_seq,
+            min_match_overlap=self.min_match_overlap,
+            min_split_overlap=self.min_split_overlap,
+            max_gap_dist=self.max_gap_dist,
+            max_gap_channels=self.max_gap_channels,
+            verbose=verbose,
+        )
+        classify_kinematic(tracks, min_displacement=self.min_displacement, verbose=verbose)
+        all_sources = group_into_sources(tracks)
+        good_sources, false_dets, src_data, src_colors = classify_sources(
+            all_sources, tracks, detections, flow_seq,
+            wav_scale_idx=self.wav_scale_idx,
+            wav_abrupt_thresh=self.wav_abrupt_thresh,
+            flow_iou_thresh=self.flow_iou_thresh,
+            short_det_max=self.short_det_max,
+            verbose=verbose,
+            plot=plot,
+            vel_array=vel_array,
+            results_dir=results_dir,
+        )
+        return TrackingResult(
+            detections=detections,
+            flow_seq=flow_seq,
+            tracks=tracks,
+            sources=good_sources,
+            false_detections=false_dets,
+            src_data=src_data,
+            src_colors=src_colors,
+        )
+
+    def __repr__(self) -> str:
+        return (
+            f"FlowTracker(detector={self.detector!r}, "
+            f"min_match_overlap={self.min_match_overlap}, "
+            f"min_split_overlap={self.min_split_overlap}, "
+            f"max_gap_dist={self.max_gap_dist}, "
+            f"max_gap_channels={self.max_gap_channels})"
+        )
 
 
 # ---------------------------------------------------------------------------

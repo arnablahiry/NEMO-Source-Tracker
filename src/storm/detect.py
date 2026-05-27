@@ -316,6 +316,89 @@ def detect_cube_per_channel(
 
 
 # ---------------------------------------------------------------------------
+# WaveletDetector — class-based API
+# ---------------------------------------------------------------------------
+
+class WaveletDetector:
+    """Starlet-wavelet per-channel source detector for 3-D spectral cubes.
+
+    Parameters
+    ----------
+    scales : int
+        Total number of starlet scales (including coarse residual).
+    k_sigma : float
+        Detection threshold in units of per-scale noise.
+    use_scale : int
+        1-based detail band used for blob detection.
+    min_area : int
+        Minimum blob area in pixels.
+    thresh : float or None
+        Absolute lower bound on detection-plane value.  ``None`` uses 10 % of
+        the channel peak.
+    use_mean_map_sigma : bool
+        Anchor the noise estimate to the mean map across all channels rather
+        than computing it per-channel.  Prevents spurious detections on nearly
+        empty channels.
+
+    Examples
+    --------
+    >>> detector = WaveletDetector(scales=6, k_sigma=5.0, use_scale=5)
+    >>> detections = detector.detect(cube, channel_list)
+    """
+
+    def __init__(
+        self,
+        scales: int = 6,
+        k_sigma: float = 5.0,
+        use_scale: int = 5,
+        min_area: int = 20,
+        thresh: float | None = None,
+        use_mean_map_sigma: bool = True,
+    ) -> None:
+        self.scales = scales
+        self.k_sigma = k_sigma
+        self.use_scale = use_scale
+        self.min_area = min_area
+        self.thresh = thresh
+        self.use_mean_map_sigma = use_mean_map_sigma
+
+    def detect(
+        self,
+        cube: np.ndarray,
+        channel_list: list[int] | None = None,
+    ) -> list[ChannelDetection]:
+        """Run per-channel wavelet detection on *cube*.
+
+        Parameters
+        ----------
+        cube : (n_ch, H, W) float32
+        channel_list : list of int or None
+            Channel indices to process.  ``None`` processes all channels.
+
+        Returns
+        -------
+        list[ChannelDetection]
+            One entry per channel in *channel_list*, in order.
+        """
+        return detect_cube_per_channel(
+            cube,
+            channel_list=channel_list,
+            scales=self.scales,
+            k_sigma=self.k_sigma,
+            use_scale=self.use_scale,
+            min_area=self.min_area,
+            thresh=self.thresh,
+            use_mean_map_sigma=self.use_mean_map_sigma,
+        )
+
+    def __repr__(self) -> str:
+        return (
+            f"WaveletDetector(scales={self.scales}, k_sigma={self.k_sigma}, "
+            f"use_scale={self.use_scale}, min_area={self.min_area})"
+        )
+
+
+# ---------------------------------------------------------------------------
 # CLI
 # ---------------------------------------------------------------------------
 

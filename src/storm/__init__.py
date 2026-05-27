@@ -1,15 +1,21 @@
 """STORM — Source Tracking via Optical-flow and Resolved Multiscale-wavelets.
 
-Main entry point::
+Typical usage::
 
-    from storm.track import run_flow_tracker
-    detections, flow_seq, tracks, sources, good_sources, false_dets, src_data, src_colors = (
-        run_flow_tracker(cube, channel_list=channel_list, verbose=True)
-    )
+    from storm import WaveletDetector, FlowTracker
+
+    detector = WaveletDetector(scales=6, k_sigma=5.0, use_scale=5)
+    tracker  = FlowTracker(detector, min_match_overlap=5)
+    result   = tracker.run(cube, channel_list, verbose=True)
+
+    result.sources          # real sources (false detections removed)
+    result.tracks           # all individual tracks
+    result.false_detections # flagged false positives
 """
 
 from .detect import (
     ChannelDetection,
+    WaveletDetector,
     load_cube,
     active_channels,
     detect_cube_per_channel,
@@ -17,6 +23,8 @@ from .detect import (
     reference_sigmas_from_mean_map,
 )
 from .track import (
+    FlowTracker,
+    TrackingResult,
     run_flow_tracker,
     compute_flow_sequence,
     link_tracks,
@@ -27,14 +35,19 @@ from .track import (
 )
 
 __all__ = [
-    # detect
+    # Primary API
+    "WaveletDetector",
+    "FlowTracker",
+    "TrackingResult",
+    # Data container
     "ChannelDetection",
+    # I/O helpers
     "load_cube",
     "active_channels",
+    # Lower-level functions (for advanced use)
     "detect_cube_per_channel",
     "wavelet_footprints_scarlet2",
     "reference_sigmas_from_mean_map",
-    # track
     "run_flow_tracker",
     "compute_flow_sequence",
     "link_tracks",
