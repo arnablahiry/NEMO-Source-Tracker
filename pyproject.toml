@@ -3,16 +3,16 @@ requires = ["setuptools>=61"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "storm"
+name = "nemo"
 version = "0.1.0"
-description = "Source Tracking via Optical-flow and Resolved Multiscale-wavelets"
+description = "Non-stationary Extraction via Multiscale Optical-flow"
 authors = [{name = "Arnab Lahiry"}]
 requires-python = ">=3.9"
 dependencies = [
     "numpy>=1.23",
     "scipy>=1.9",
     "scikit-image>=0.21",
-    "scarlet2",
+    "torch>=2.0",
     "astropy>=5.0",
     "h5py>=3.8",
     "matplotlib>=3.6",
@@ -20,11 +20,18 @@ dependencies = [
 
 [project.optional-dependencies]
 denoise = []  # cosmostat/pycs must be installed manually (not on PyPI)
+docs = [
+    "sphinx>=7",
+    "sphinx-book-theme>=1.1",
+    "sphinx-autoapi>=3",
+    "sphinx-design>=0.5",
+]
 
 [project.scripts]
-storm-detect = "storm.detect:main"
-storm-track  = "storm.track:main"
-storm-denoise = "storm.denoise:main"
+nemo-detect  = "nemo.detect:main"
+nemo-track   = "nemo.track:main"
+nemo-denoise = "nemo.denoise:main"
+nemo-gui     = "nemo.gui:launch"
 
 [tool.setuptools.packages.find]
 where = ["src"]
