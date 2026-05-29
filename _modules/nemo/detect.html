@@ -1,0 +1,971 @@
+
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="../../" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>nemo.detect &#8212; N.E.M.O.</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  <!--
+    this give us a css class that will be invisible only if js is disabled
+  -->
+  <noscript>
+    <style>
+      .pst-js-only { display: none !important; }
+
+    </style>
+  </noscript>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="../../_static/styles/theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+<link href="../../_static/styles/pydata-sphinx-theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=8f2a1f02" />
+    <link rel="stylesheet" type="text/css" href="../../_static/styles/sphinx-book-theme.css?v=3c74b3bc" />
+    <link rel="stylesheet" type="text/css" href="../../_static/graphviz.css?v=4ae1632d" />
+    <link rel="stylesheet" type="text/css" href="../../_static/sphinx-design.min.css?v=95c83b7e" />
+  
+  <!-- So that users can add custom icons -->
+  <script src="../../_static/scripts/fontawesome.js?digest=8878045cc6db502f8baf"></script>
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
+<link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
+
+    <script src="../../_static/documentation_options.js?v=a1637f0b"></script>
+    <script src="../../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="../../_static/scripts/sphinx-book-theme.js?v=fab101a9"></script>
+    <script src="../../_static/design-tabs.js?v=f930bc37"></script>
+    <script>DOCUMENTATION_OPTIONS.pagename = '_modules/nemo/detect';</script>
+    <link rel="canonical" href="https://arnablahiry.github.io/software/nemo/_modules/nemo/detect.html" />
+    <link rel="icon" href="../../_static/nemo_ico.png"/>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  <meta name="docsearch:version" content="" />
+  </head>
+  
+  
+  <body data-bs-spy="scroll" data-bs-target=".bd-toc-nav" data-offset="180" data-bs-root-margin="0px 0px -60%" data-default-mode="">
+
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
+
+  
+  <dialog id="pst-search-dialog">
+    
+<form class="bd-search d-flex align-items-center"
+      action="../../search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         placeholder="Search..."
+         aria-label="Search..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form>
+  </dialog>
+
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
+</div>
+
+  
+    <header class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+        
+      
+      <dialog id="pst-primary-sidebar-modal"></dialog>
+      <div id="pst-primary-sidebar" class="bd-sidebar-primary bd-sidebar">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+    
+    
+  </div>
+  
+    <div class="sidebar-primary-items__start sidebar-primary__section">
+        <div class="sidebar-primary-item">
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="../../index.html">
+  
+  
+  
+  
+  
+    
+    
+      
+    
+    
+    <img src="../../_static/nemo_ico.png" class="logo__image only-light" alt="N.E.M.O. - Home"/>
+    <img src="../../_static/nemo_ico.png" class="logo__image only-dark pst-js-only" alt="N.E.M.O. - Home"/>
+  
+  
+</a></div>
+        <div class="sidebar-primary-item">
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button></div>
+        <div class="sidebar-primary-item"><nav class="bd-links bd-docs-nav" aria-label="Main">
+    <div class="bd-toc-item navbar-nav active">
+        
+        <ul class="nav bd-sidenav bd-sidenav__home-link">
+            <li class="toctree-l1">
+                <a class="reference internal" href="../../index.html">
+                    N.E.M.O. [Non-stationary Extraction via Multiscale Optical-flow]
+                </a>
+            </li>
+        </ul>
+        <ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="../../installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../quickstart.html">Quick Start</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../methodology.html">Methodology</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../gui.html">Graphical Interface</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../results.html">Results: W2246-0526</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../cli.html">CLI Reference</a></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../../autoapi/index.html">API Reference</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../autoapi/nemo/index.html">nemo</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../autoapi/nemo/denoise/index.html">nemo.denoise</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../autoapi/nemo/detect/index.html">nemo.detect</a></li>
+<li class="toctree-l3 has-children"><a class="reference internal" href="../../autoapi/nemo/gui/index.html">nemo.gui</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../autoapi/nemo/gui/analysis/index.html">nemo.gui.analysis</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../autoapi/nemo/gui/app/index.html">nemo.gui.app</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../autoapi/nemo/gui/card/index.html">nemo.gui.card</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../autoapi/nemo/gui/dialogs/index.html">nemo.gui.dialogs</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../autoapi/nemo/gui/loaders/index.html">nemo.gui.loaders</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../autoapi/nemo/gui/viewers/index.html">nemo.gui.viewers</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../autoapi/nemo/gui/widgets/index.html">nemo.gui.widgets</a></li>
+</ul>
+</details></li>
+<li class="toctree-l3"><a class="reference internal" href="../../autoapi/nemo/track/index.html">nemo.track</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../autoapi/nemo/utils/index.html">nemo.utils</a></li>
+</ul>
+</details></li>
+</ul>
+</details></li>
+</ul>
+
+    </div>
+</nav></div>
+    </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+      <div class="sidebar-primary-item">
+<div id="ethical-ad-placement"
+      class="flat"
+      data-ea-publisher="readthedocs"
+      data-ea-type="readthedocs-sidebar"
+      data-ea-manual="true">
+</div></div>
+  </div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+
+<div class="sbt-scroll-pixel-helper"></div>
+
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item"><button class="sidebar-toggle primary-toggle btn btn-sm" title="Toggle primary sidebar" data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <span class="fa-solid fa-bars"></span>
+</button></div>
+      
+    </div>
+  
+  
+    <div class="header-article-items__end">
+      
+        <div class="header-article-item">
+
+<div class="article-header-buttons">
+
+
+
+
+
+<div class="dropdown dropdown-source-buttons">
+  <button class="btn dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Source repositories">
+    <i class="fab fa-github"></i>
+  </button>
+  <ul class="dropdown-menu">
+      
+      
+      
+      <li><a href="https://github.com/arnablahiry/nemo" target="_blank"
+   class="btn btn-sm btn-source-repository-button dropdown-item"
+   title="Source repository"
+   data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fab fa-github"></i>
+  </span>
+<span class="btn__text-container">Repository</span>
+</a>
+</li>
+      
+      
+      
+      
+      <li><a href="https://github.com/arnablahiry/nemo/issues/new?title=Issue%20on%20page%20%2F_modules/nemo/detect.html&body=Your%20issue%20content%20here." target="_blank"
+   class="btn btn-sm btn-source-issues-button dropdown-item"
+   title="Open an issue"
+   data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-lightbulb"></i>
+  </span>
+<span class="btn__text-container">Open issue</span>
+</a>
+</li>
+      
+  </ul>
+</div>
+
+
+
+
+<button onclick="toggleFullScreen()"
+  class="btn btn-sm btn-fullscreen-button pst-navbar-icon"
+  title="Fullscreen mode"
+  data-bs-placement="bottom" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-expand"></i>
+  </span>
+
+</button>
+
+
+
+<button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button pst-js-only" aria-label="Color mode" data-bs-title="Color mode"  data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <i class="theme-switch fa-solid fa-sun                fa-lg" data-mode="light" title="Light"></i>
+  <i class="theme-switch fa-solid fa-moon               fa-lg" data-mode="dark"  title="Dark"></i>
+  <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"  title="System Settings"></i>
+</button>
+
+
+<button class="btn btn-sm pst-navbar-icon search-button search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="fa-solid fa-magnifying-glass fa-lg"></i>
+</button>
+
+</div></div>
+      
+    </div>
+  
+</div>
+</div>
+              
+              
+
+<div id="jb-print-docs-body" class="onlyprint">
+    <h1></h1>
+    <!-- Table of contents -->
+    <div id="print-main-content">
+        <div id="jb-print-toc">
+            
+        </div>
+    </div>
+</div>
+
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+  <h1>Source code for nemo.detect</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;Per-channel starlet (à trous IUWT) source detection for 3-D spectral cubes.</span>
+
+<span class="sd">Strategy</span>
+<span class="sd">--------</span>
+<span class="sd">The starlet transform decomposes each 2-D spectral slice into detail bands at</span>
+<span class="sd">increasing angular scales plus a coarse residual.  Compact sources produce</span>
+<span class="sd">strong coefficients in the fine-scale bands; diffuse emission sits in the</span>
+<span class="sd">coarser bands and is naturally suppressed.</span>
+
+<span class="sd">For each channel slice, ``wavelet_footprints``:</span>
+
+<span class="sd">1. Computes the starlet transform via a manual PyTorch à trous convolution with</span>
+<span class="sd">   the B3-spline scaling function.</span>
+<span class="sd">2. Thresholds each detail scale independently using a per-scale MAD noise</span>
+<span class="sd">   estimate, so the threshold adapts to the actual signal level at that scale</span>
+<span class="sd">   rather than collapsing on noise-free or low-signal data.</span>
+<span class="sd">3. Applies an absolute floor of 10 % of the detection-plane peak to suppress</span>
+<span class="sd">   float32 rounding artefacts in noise-free cubes.</span>
+<span class="sd">4. Extracts connected emission components on the chosen detection scale and returns peak</span>
+<span class="sd">   coordinates, binary footprint masks, and bounding boxes.</span>
+
+<span class="sd">Input formats</span>
+<span class="sd">-------------</span>
+<span class="sd">``load_cube`` accepts .h5/.hdf5, .fits/.fit, .npy, .npz.</span>
+
+<span class="sd">Usage (standalone)::</span>
+
+<span class="sd">    python wavelet_detections.py \\</span>
+<span class="sd">        --cube  data/clean_cube.npy \\</span>
+<span class="sd">        --out   /tmp/detections \\</span>
+<span class="sd">        --channels 70,74 \\</span>
+<span class="sd">        --k-sigma 5 --scales 6 --use-scale 5 --min-area 20</span>
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">argparse</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">json</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">NamedTuple</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">torch.nn.functional</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">F</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">scipy.ndimage</span><span class="w"> </span><span class="kn">import</span> <span class="n">label</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">skimage.measure</span><span class="w"> </span><span class="kn">import</span> <span class="n">regionprops</span>
+
+
+<span class="c1"># ---------------------------------------------------------------------------</span>
+<span class="c1"># Starlet (à trous IUWT) transform — pure PyTorch</span>
+<span class="c1"># ---------------------------------------------------------------------------</span>
+
+<span class="c1"># B3-spline scaling function coefficients</span>
+<span class="n">_B3</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">([</span><span class="mi">1</span> <span class="o">/</span> <span class="mi">16</span><span class="p">,</span> <span class="mi">1</span> <span class="o">/</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">3</span> <span class="o">/</span> <span class="mi">8</span><span class="p">,</span> <span class="mi">1</span> <span class="o">/</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">1</span> <span class="o">/</span> <span class="mi">16</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_atrous_conv2d</span><span class="p">(</span><span class="n">plane</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">dilation</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Separable B3-spline à trous convolution on a (1, 1, H, W) tensor.&quot;&quot;&quot;</span>
+    <span class="n">h</span> <span class="o">=</span> <span class="n">_B3</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">plane</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
+    <span class="n">pad</span> <span class="o">=</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">dilation</span>
+    <span class="n">out</span> <span class="o">=</span> <span class="n">F</span><span class="o">.</span><span class="n">conv2d</span><span class="p">(</span><span class="n">plane</span><span class="p">,</span> <span class="n">h</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">5</span><span class="p">),</span> <span class="n">padding</span><span class="o">=</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">pad</span><span class="p">),</span> <span class="n">dilation</span><span class="o">=</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">dilation</span><span class="p">))</span>
+    <span class="n">out</span> <span class="o">=</span> <span class="n">F</span><span class="o">.</span><span class="n">conv2d</span><span class="p">(</span><span class="n">out</span><span class="p">,</span>   <span class="n">h</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span> <span class="n">padding</span><span class="o">=</span><span class="p">(</span><span class="n">pad</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span> <span class="n">dilation</span><span class="o">=</span><span class="p">(</span><span class="n">dilation</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
+    <span class="k">return</span> <span class="n">out</span>
+
+
+<div class="viewcode-block" id="starlet_transform">
+<a class="viewcode-back" href="../../autoapi/nemo/detect/index.html#nemo.detect.starlet_transform">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">starlet_transform</span><span class="p">(</span><span class="n">image</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">scales</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Starlet (à trous IUWT) transform of a 2-D image.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    image : (H, W) float32</span>
+<span class="sd">    scales : total planes = (scales-1) detail bands + 1 coarse residual</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    np.ndarray, shape (scales, H, W)</span>
+<span class="sd">        Planes 0 … scales-2 are detail bands (finest → coarsest).</span>
+<span class="sd">        Plane scales-1 is the coarse residual.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">c</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">as_tensor</span><span class="p">(</span><span class="n">image</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+    <span class="n">planes</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">scales</span> <span class="o">-</span> <span class="mi">1</span><span class="p">):</span>
+        <span class="n">c_next</span> <span class="o">=</span> <span class="n">_atrous_conv2d</span><span class="p">(</span><span class="n">c</span><span class="p">,</span> <span class="n">dilation</span><span class="o">=</span><span class="mi">2</span> <span class="o">**</span> <span class="n">j</span><span class="p">)</span>
+        <span class="n">planes</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">c</span> <span class="o">-</span> <span class="n">c_next</span><span class="p">)</span><span class="o">.</span><span class="n">squeeze</span><span class="p">()</span><span class="o">.</span><span class="n">numpy</span><span class="p">())</span>
+        <span class="n">c</span> <span class="o">=</span> <span class="n">c_next</span>
+    <span class="n">planes</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">c</span><span class="o">.</span><span class="n">squeeze</span><span class="p">()</span><span class="o">.</span><span class="n">numpy</span><span class="p">())</span>   <span class="c1"># coarse residual</span>
+    <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">stack</span><span class="p">(</span><span class="n">planes</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span></div>
+
+
+
+<span class="c1"># ---------------------------------------------------------------------------</span>
+<span class="c1"># Multi-format cube loader</span>
+<span class="c1"># ---------------------------------------------------------------------------</span>
+
+<div class="viewcode-block" id="load_cube">
+<a class="viewcode-back" href="../../autoapi/nemo/detect/index.html#nemo.detect.load_cube">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">load_cube</span><span class="p">(</span><span class="n">path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Load a spectral cube from HDF5, FITS, .npy, or .npz.</span>
+
+<span class="sd">    Always returns float32 (n_ch, H, W).  NaNs are replaced with 0.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">path</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
+    <span class="n">suf</span>  <span class="o">=</span> <span class="n">path</span><span class="o">.</span><span class="n">suffix</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
+
+    <span class="k">if</span> <span class="n">suf</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;.h5&quot;</span><span class="p">,</span> <span class="s2">&quot;.hdf5&quot;</span><span class="p">):</span>
+        <span class="kn">import</span><span class="w"> </span><span class="nn">h5py</span>
+        <span class="k">with</span> <span class="n">h5py</span><span class="o">.</span><span class="n">File</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="s2">&quot;r&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+            <span class="n">cube</span> <span class="o">=</span> <span class="n">f</span><span class="p">[</span><span class="s2">&quot;cube&quot;</span><span class="p">][:]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
+
+    <span class="k">elif</span> <span class="n">suf</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;.fits&quot;</span><span class="p">,</span> <span class="s2">&quot;.fit&quot;</span><span class="p">):</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">astropy.io</span><span class="w"> </span><span class="kn">import</span> <span class="n">fits</span>
+        <span class="k">with</span> <span class="n">fits</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="n">path</span><span class="p">)</span> <span class="k">as</span> <span class="n">hdul</span><span class="p">:</span>
+            <span class="n">data</span> <span class="o">=</span> <span class="n">hdul</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">data</span>
+        <span class="k">if</span> <span class="n">data</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;No data in primary HDU of </span><span class="si">{</span><span class="n">path</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">squeeze</span><span class="p">(</span><span class="n">data</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">data</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="n">data</span> <span class="o">=</span> <span class="n">data</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">newaxis</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">data</span><span class="o">.</span><span class="n">ndim</span> <span class="o">!=</span> <span class="mi">3</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;Cannot interpret FITS array with shape </span><span class="si">{</span><span class="n">data</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2"> as (n_ch,H,W)&quot;</span>
+            <span class="p">)</span>
+        <span class="n">cube</span> <span class="o">=</span> <span class="n">data</span>
+
+    <span class="k">elif</span> <span class="n">suf</span> <span class="o">==</span> <span class="s2">&quot;.npy&quot;</span><span class="p">:</span>
+        <span class="n">cube</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">path</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">cube</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="n">cube</span> <span class="o">=</span> <span class="n">cube</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">newaxis</span><span class="p">]</span>
+
+    <span class="k">elif</span> <span class="n">suf</span> <span class="o">==</span> <span class="s2">&quot;.npz&quot;</span><span class="p">:</span>
+        <span class="n">arch</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
+        <span class="n">key</span>  <span class="o">=</span> <span class="s2">&quot;cube&quot;</span> <span class="k">if</span> <span class="s2">&quot;cube&quot;</span> <span class="ow">in</span> <span class="n">arch</span> <span class="k">else</span> <span class="nb">list</span><span class="p">(</span><span class="n">arch</span><span class="o">.</span><span class="n">keys</span><span class="p">())[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">cube</span> <span class="o">=</span> <span class="n">arch</span><span class="p">[</span><span class="n">key</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
+
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;Unsupported extension </span><span class="si">{</span><span class="n">suf</span><span class="si">!r}</span><span class="s2">.  Use .h5/.hdf5, .fits/.fit, .npy, or .npz&quot;</span>
+        <span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">cube</span><span class="o">.</span><span class="n">ndim</span> <span class="o">!=</span> <span class="mi">3</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Loaded array has shape </span><span class="si">{</span><span class="n">cube</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2">; expected (n_ch, H, W)&quot;</span><span class="p">)</span>
+
+    <span class="n">np</span><span class="o">.</span><span class="n">nan_to_num</span><span class="p">(</span><span class="n">cube</span><span class="p">,</span> <span class="n">copy</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">nan</span><span class="o">=</span><span class="mf">0.0</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">cube</span></div>
+
+
+
+<div class="viewcode-block" id="active_channels">
+<a class="viewcode-back" href="../../autoapi/nemo/detect/index.html#nemo.detect.active_channels">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">active_channels</span><span class="p">(</span><span class="n">cube</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">threshold_frac</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.05</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Return indices of channels whose positive flux exceeds *threshold_frac* × max.</span>
+
+<span class="sd">    Uses only positive flux so noise-dominated channels (where positive and</span>
+<span class="sd">    negative values roughly cancel) do not inflate the total.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">flux</span>   <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nansum</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="n">cube</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span> <span class="n">axis</span><span class="o">=</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">))</span>
+    <span class="n">thresh</span> <span class="o">=</span> <span class="n">threshold_frac</span> <span class="o">*</span> <span class="nb">float</span><span class="p">(</span><span class="n">flux</span><span class="o">.</span><span class="n">max</span><span class="p">())</span>
+    <span class="k">return</span> <span class="p">[</span><span class="nb">int</span><span class="p">(</span><span class="n">i</span><span class="p">)</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">flux</span> <span class="o">&gt;=</span> <span class="n">thresh</span><span class="p">)[</span><span class="mi">0</span><span class="p">]]</span></div>
+
+
+
+<span class="c1"># ---------------------------------------------------------------------------</span>
+<span class="c1"># Result container</span>
+<span class="c1"># ---------------------------------------------------------------------------</span>
+
+<div class="viewcode-block" id="ChannelDetection">
+<a class="viewcode-back" href="../../autoapi/nemo/detect/index.html#nemo.detect.ChannelDetection">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">ChannelDetection</span><span class="p">(</span><span class="n">NamedTuple</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;All detection results for a single spectral channel.&quot;&quot;&quot;</span>
+
+    <span class="n">channel</span><span class="p">:</span> <span class="nb">int</span>
+    <span class="c1"># Raw channel slice (H, W) float32.</span>
+    <span class="n">image</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span>
+    <span class="c1"># One (H, W) bool mask per detected emission component.</span>
+    <span class="n">footprint_masks</span><span class="p">:</span> <span class="nb">list</span>
+    <span class="c1"># (row, col) integer tuples, one per component.</span>
+    <span class="n">peaks</span><span class="p">:</span> <span class="nb">list</span>
+    <span class="c1"># (y0, x0, y1, x1) integer tuples, one per component.</span>
+    <span class="n">boxes</span><span class="p">:</span> <span class="nb">list</span>
+    <span class="c1"># Thresholded starlet coefficient cube (n_scales+1, H, W) float32.</span>
+    <span class="n">detect_coeffs</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span></div>
+
+
+
+<span class="c1"># ---------------------------------------------------------------------------</span>
+<span class="c1"># Per-channel detection</span>
+<span class="c1"># ---------------------------------------------------------------------------</span>
+
+<div class="viewcode-block" id="reference_sigmas_from_mean_map">
+<a class="viewcode-back" href="../../autoapi/nemo/detect/index.html#nemo.detect.reference_sigmas_from_mean_map">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">reference_sigmas_from_mean_map</span><span class="p">(</span>
+    <span class="n">cube</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+    <span class="n">channel_list</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">scales</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Per-scale noise reference derived from the mean map across *channel_list*.</span>
+
+<span class="sd">    The mean map has noise σ/√N relative to a single channel.  Per-scale MAD</span>
+<span class="sd">    of its starlet coefficients is therefore multiplied by √N to recover an</span>
+<span class="sd">    estimate of the single-channel noise at each wavelet scale.  This gives a</span>
+<span class="sd">    stable, channel-independent threshold that is immune to the per-channel MAD</span>
+<span class="sd">    collapse that occurs on near-empty channels (where residuals are tiny and</span>
+<span class="sd">    deterministic, making per-channel σ → 0 and the threshold meaninglessly low).</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    cube : (n_ch, H, W) float32</span>
+<span class="sd">    channel_list : list of channel indices to include; ``None`` uses all.</span>
+<span class="sd">    scales : total number of starlet scales (including coarse residual).</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    np.ndarray, shape (scales - 1,)</span>
+<span class="sd">        Single-channel noise estimate for each detail scale.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">channel_list</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">channel_list</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="n">cube</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]))</span>
+    <span class="n">mean_map</span> <span class="o">=</span> <span class="n">cube</span><span class="p">[</span><span class="n">channel_list</span><span class="p">]</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
+    <span class="n">coeffs</span>   <span class="o">=</span> <span class="n">starlet_transform</span><span class="p">(</span><span class="n">mean_map</span><span class="p">,</span> <span class="n">scales</span><span class="o">=</span><span class="n">scales</span><span class="p">)</span>
+    <span class="n">n_detail</span> <span class="o">=</span> <span class="n">coeffs</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="mi">1</span>
+    <span class="n">sigmas</span>   <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="n">n_detail</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n_detail</span><span class="p">):</span>
+        <span class="n">c</span> <span class="o">=</span> <span class="n">coeffs</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+        <span class="n">sigmas</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="mf">1.4826</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">median</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">c</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">median</span><span class="p">(</span><span class="n">c</span><span class="p">)))</span> <span class="o">+</span> <span class="mf">1e-12</span>
+    <span class="k">return</span> <span class="n">sigmas</span></div>
+
+
+
+<div class="viewcode-block" id="wavelet_footprints">
+<a class="viewcode-back" href="../../autoapi/nemo/detect/index.html#nemo.detect.wavelet_footprints">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">wavelet_footprints</span><span class="p">(</span>
+    <span class="n">image</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+    <span class="n">scales</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">4</span><span class="p">,</span>
+    <span class="n">k_sigma</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">2.3</span><span class="p">,</span>
+    <span class="n">use_scale</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">2</span><span class="p">,</span>
+    <span class="n">min_area</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">10</span><span class="p">,</span>
+    <span class="n">thresh</span><span class="p">:</span> <span class="nb">float</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">sigma_per_scale</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ChannelDetection</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Detect compact-source footprints in a single 2-D image via starlet thresholding.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    image :</span>
+<span class="sd">        2-D spectral slice (H, W).</span>
+<span class="sd">    scales :</span>
+<span class="sd">        Total number of starlet scales (including the coarse residual plane).</span>
+<span class="sd">    k_sigma :</span>
+<span class="sd">        Detection threshold in units of per-scale noise.</span>
+<span class="sd">    use_scale :</span>
+<span class="sd">        1-based index of the detail band used for component detection.</span>
+<span class="sd">        Scale 1 is the finest (sub-pixel structure); higher scales capture</span>
+<span class="sd">        progressively larger compact sources.</span>
+<span class="sd">    min_area :</span>
+<span class="sd">        Minimum component area in pixels; smaller components are discarded as artefacts.</span>
+<span class="sd">    thresh :</span>
+<span class="sd">        Absolute lower bound on the detection-plane value.  ``None`` (default)</span>
+<span class="sd">        sets it to 10 % of the detection-plane maximum.</span>
+<span class="sd">    sigma_per_scale :</span>
+<span class="sd">        Pre-computed per-scale noise array, shape (scales-1,).  When provided,</span>
+<span class="sd">        these values replace the per-channel MAD estimate so that the threshold</span>
+<span class="sd">        is anchored to a stable global reference (typically derived from the</span>
+<span class="sd">        mean map via :func:`reference_sigmas_from_mean_map`).  Passing ``None``</span>
+<span class="sd">        falls back to the original per-channel MAD behaviour.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    ChannelDetection</span>
+<span class="sd">        channel is set to -1 here; callers should replace it via ``._replace``.</span>
+
+<span class="sd">    Notes</span>
+<span class="sd">    -----</span>
+<span class="sd">    When ``sigma_per_scale`` is ``None`` each scale is thresholded with its own</span>
+<span class="sd">    MAD estimate.  This is adaptive but can collapse to near-zero on nearly</span>
+<span class="sd">    empty channels (where denoised residuals are tiny), causing spurious</span>
+<span class="sd">    detections.  Providing ``sigma_per_scale`` from the mean-map decomposition</span>
+<span class="sd">    pins the threshold to the cube-wide noise floor and eliminates this failure.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">img</span>    <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">image</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
+    <span class="n">coeffs</span> <span class="o">=</span> <span class="n">starlet_transform</span><span class="p">(</span><span class="n">img</span><span class="p">,</span> <span class="n">scales</span><span class="o">=</span><span class="n">scales</span><span class="p">)</span>
+
+    <span class="n">detect</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">coeffs</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">coeffs</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="mi">1</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">sigma_per_scale</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">sigma_i</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">sigma_per_scale</span><span class="p">[</span><span class="n">i</span><span class="p">])</span> <span class="o">+</span> <span class="mf">1e-12</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">sigma_i</span> <span class="o">=</span> <span class="mf">1.4826</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">median</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">coeffs</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">median</span><span class="p">(</span><span class="n">coeffs</span><span class="p">[</span><span class="n">i</span><span class="p">])))</span> <span class="o">+</span> <span class="mf">1e-12</span>
+        <span class="n">detect</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">coeffs</span><span class="p">[</span><span class="n">i</span><span class="p">])</span> <span class="o">&gt;</span> <span class="n">k_sigma</span> <span class="o">*</span> <span class="n">sigma_i</span><span class="p">,</span> <span class="n">coeffs</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="mf">0.0</span><span class="p">)</span>
+    <span class="n">detect</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">coeffs</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>   <span class="c1"># coarse residual kept as-is</span>
+    <span class="n">detect</span><span class="p">[</span><span class="n">detect</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span>    <span class="c1"># positive emission only</span>
+
+    <span class="n">scale_idx</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="n">use_scale</span> <span class="o">-</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">detect</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="mi">1</span><span class="p">))</span>
+    <span class="n">plane</span> <span class="o">=</span> <span class="n">detect</span><span class="p">[</span><span class="n">scale_idx</span><span class="p">]</span>
+
+    <span class="c1"># 10 % of peak prevents float32 rounding artefacts (~1e-7) from</span>
+    <span class="c1"># triggering detections when a signal-free channel makes sigma → 0.</span>
+    <span class="n">effective_thresh</span> <span class="o">=</span> <span class="mf">0.1</span> <span class="o">*</span> <span class="nb">float</span><span class="p">(</span><span class="n">plane</span><span class="o">.</span><span class="n">max</span><span class="p">())</span> <span class="k">if</span> <span class="n">thresh</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">thresh</span>
+    <span class="n">binary</span>           <span class="o">=</span> <span class="n">plane</span> <span class="o">&gt;</span> <span class="n">effective_thresh</span>
+    <span class="n">labeled</span><span class="p">,</span> <span class="n">_</span>       <span class="o">=</span> <span class="n">label</span><span class="p">(</span><span class="n">binary</span><span class="p">)</span>
+    <span class="n">regions</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="n">r</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">regionprops</span><span class="p">(</span><span class="n">labeled</span><span class="p">,</span> <span class="n">intensity_image</span><span class="o">=</span><span class="n">plane</span><span class="p">)</span> <span class="k">if</span> <span class="n">r</span><span class="o">.</span><span class="n">area</span> <span class="o">&gt;=</span> <span class="n">min_area</span>
+    <span class="p">]</span>
+
+    <span class="n">peaks</span><span class="p">,</span> <span class="n">footprint_masks</span><span class="p">,</span> <span class="n">boxes</span> <span class="o">=</span> <span class="p">[],</span> <span class="p">[],</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">regions</span><span class="p">:</span>
+        <span class="n">y0</span><span class="p">,</span> <span class="n">x0</span><span class="p">,</span> <span class="n">y1</span><span class="p">,</span> <span class="n">x1</span> <span class="o">=</span> <span class="n">r</span><span class="o">.</span><span class="n">bbox</span>
+        <span class="n">patch</span> <span class="o">=</span> <span class="n">plane</span><span class="p">[</span><span class="n">y0</span><span class="p">:</span><span class="n">y1</span><span class="p">,</span> <span class="n">x0</span><span class="p">:</span><span class="n">x1</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">patch</span><span class="o">.</span><span class="n">size</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">continue</span>
+        <span class="n">py</span><span class="p">,</span> <span class="n">px</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">unravel_index</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">argmax</span><span class="p">(</span><span class="n">patch</span><span class="p">),</span> <span class="n">patch</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+        <span class="n">peaks</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="nb">int</span><span class="p">(</span><span class="n">y0</span> <span class="o">+</span> <span class="n">py</span><span class="p">),</span> <span class="nb">int</span><span class="p">(</span><span class="n">x0</span> <span class="o">+</span> <span class="n">px</span><span class="p">)))</span>
+        <span class="n">footprint_masks</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">labeled</span> <span class="o">==</span> <span class="n">r</span><span class="o">.</span><span class="n">label</span><span class="p">)</span>
+        <span class="n">boxes</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">y0</span><span class="p">,</span> <span class="n">x0</span><span class="p">,</span> <span class="n">y1</span><span class="p">,</span> <span class="n">x1</span><span class="p">))</span>
+
+    <span class="k">return</span> <span class="n">ChannelDetection</span><span class="p">(</span>
+        <span class="n">channel</span><span class="o">=-</span><span class="mi">1</span><span class="p">,</span> <span class="n">image</span><span class="o">=</span><span class="n">img</span><span class="p">,</span>
+        <span class="n">footprint_masks</span><span class="o">=</span><span class="n">footprint_masks</span><span class="p">,</span> <span class="n">peaks</span><span class="o">=</span><span class="n">peaks</span><span class="p">,</span> <span class="n">boxes</span><span class="o">=</span><span class="n">boxes</span><span class="p">,</span>
+        <span class="n">detect_coeffs</span><span class="o">=</span><span class="n">detect</span><span class="p">,</span>
+    <span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="detect_cube_per_channel">
+<a class="viewcode-back" href="../../autoapi/nemo/detect/index.html#nemo.detect.detect_cube_per_channel">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">detect_cube_per_channel</span><span class="p">(</span>
+    <span class="n">cube</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+    <span class="n">channel_list</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">scales</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">4</span><span class="p">,</span>
+    <span class="n">k_sigma</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">2.3</span><span class="p">,</span>
+    <span class="n">use_scale</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">2</span><span class="p">,</span>
+    <span class="n">min_area</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">10</span><span class="p">,</span>
+    <span class="n">thresh</span><span class="p">:</span> <span class="nb">float</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">use_mean_map_sigma</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="n">verbose</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">ChannelDetection</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Run ``wavelet_footprints`` on every channel in *channel_list*.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    use_mean_map_sigma :</span>
+<span class="sd">        When ``True`` (default), compute per-scale noise reference from the</span>
+<span class="sd">        mean map across *channel_list* via :func:`reference_sigmas_from_mean_map`</span>
+<span class="sd">        and pass it to every per-channel call.  This prevents the per-channel</span>
+<span class="sd">        MAD from collapsing on near-empty channels and eliminates spurious</span>
+<span class="sd">        detections in signal-free parts of the cube.  Set to ``False`` to</span>
+<span class="sd">        revert to the original per-channel MAD behaviour.</span>
+<span class="sd">    verbose :</span>
+<span class="sd">        Print progress and summary statistics to stdout.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    list[ChannelDetection]</span>
+<span class="sd">        One entry per channel, with the ``channel`` field set to the cube channel index.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">channel_list</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">channel_list</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="n">cube</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]))</span>
+
+    <span class="n">n_ch</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">channel_list</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">verbose</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;[WaveletDetector] cube </span><span class="si">{</span><span class="n">cube</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2">  &quot;</span>
+              <span class="sa">f</span><span class="s2">&quot;range [</span><span class="si">{</span><span class="n">cube</span><span class="o">.</span><span class="n">min</span><span class="p">()</span><span class="si">:</span><span class="s2">.3e</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="n">cube</span><span class="o">.</span><span class="n">max</span><span class="p">()</span><span class="si">:</span><span class="s2">.3e</span><span class="si">}</span><span class="s2">]&quot;</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  scales=</span><span class="si">{</span><span class="n">scales</span><span class="si">}</span><span class="s2">  k_sigma=</span><span class="si">{</span><span class="n">k_sigma</span><span class="si">}</span><span class="s2">  use_scale=</span><span class="si">{</span><span class="n">use_scale</span><span class="si">}</span><span class="s2">  &quot;</span>
+              <span class="sa">f</span><span class="s2">&quot;min_area=</span><span class="si">{</span><span class="n">min_area</span><span class="si">}</span><span class="s2">  thresh=</span><span class="si">{</span><span class="n">thresh</span><span class="si">}</span><span class="s2">  &quot;</span>
+              <span class="sa">f</span><span class="s2">&quot;use_mean_map_sigma=</span><span class="si">{</span><span class="n">use_mean_map_sigma</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  Processing </span><span class="si">{</span><span class="n">n_ch</span><span class="si">}</span><span class="s2"> channels: </span><span class="si">{</span><span class="n">channel_list</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="s2">–</span><span class="si">{</span><span class="n">channel_list</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+    <span class="n">sigma_ref</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="n">reference_sigmas_from_mean_map</span><span class="p">(</span><span class="n">cube</span><span class="p">,</span> <span class="n">channel_list</span><span class="p">,</span> <span class="n">scales</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">use_mean_map_sigma</span> <span class="k">else</span> <span class="kc">None</span>
+    <span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">verbose</span> <span class="ow">and</span> <span class="n">sigma_ref</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  Mean-map per-scale σ: &quot;</span>
+              <span class="o">+</span> <span class="s2">&quot;  &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;s</span><span class="si">{</span><span class="n">i</span><span class="o">+</span><span class="mi">1</span><span class="si">}</span><span class="s2">=</span><span class="si">{</span><span class="n">sigma_ref</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="si">:</span><span class="s2">.3e</span><span class="si">}</span><span class="s2">&quot;</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">sigma_ref</span><span class="p">))))</span>
+
+    <span class="n">results</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">total_det</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="n">channels_with_det</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="n">max_det</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="n">max_det_ch</span> <span class="o">=</span> <span class="n">channel_list</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+
+    <span class="k">for</span> <span class="n">idx</span><span class="p">,</span> <span class="n">ch</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">channel_list</span><span class="p">):</span>
+        <span class="n">det</span> <span class="o">=</span> <span class="n">wavelet_footprints</span><span class="p">(</span>
+            <span class="n">cube</span><span class="p">[</span><span class="n">ch</span><span class="p">],</span>
+            <span class="n">scales</span><span class="o">=</span><span class="n">scales</span><span class="p">,</span> <span class="n">k_sigma</span><span class="o">=</span><span class="n">k_sigma</span><span class="p">,</span>
+            <span class="n">use_scale</span><span class="o">=</span><span class="n">use_scale</span><span class="p">,</span> <span class="n">min_area</span><span class="o">=</span><span class="n">min_area</span><span class="p">,</span> <span class="n">thresh</span><span class="o">=</span><span class="n">thresh</span><span class="p">,</span>
+            <span class="n">sigma_per_scale</span><span class="o">=</span><span class="n">sigma_ref</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">det</span> <span class="o">=</span> <span class="n">det</span><span class="o">.</span><span class="n">_replace</span><span class="p">(</span><span class="n">channel</span><span class="o">=</span><span class="n">ch</span><span class="p">)</span>
+        <span class="n">results</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">det</span><span class="p">)</span>
+
+        <span class="n">n</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">det</span><span class="o">.</span><span class="n">peaks</span><span class="p">)</span>
+        <span class="n">total_det</span> <span class="o">+=</span> <span class="n">n</span>
+        <span class="k">if</span> <span class="n">n</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">channels_with_det</span> <span class="o">+=</span> <span class="mi">1</span>
+        <span class="k">if</span> <span class="n">n</span> <span class="o">&gt;</span> <span class="n">max_det</span><span class="p">:</span>
+            <span class="n">max_det</span> <span class="o">=</span> <span class="n">n</span>
+            <span class="n">max_det_ch</span> <span class="o">=</span> <span class="n">ch</span>
+
+        <span class="k">if</span> <span class="n">verbose</span><span class="p">:</span>
+            <span class="n">bar</span> <span class="o">=</span> <span class="s2">&quot;█&quot;</span> <span class="o">*</span> <span class="n">n</span> <span class="o">+</span> <span class="s2">&quot;·&quot;</span> <span class="o">*</span> <span class="nb">max</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">5</span> <span class="o">-</span> <span class="n">n</span><span class="p">)</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  ch </span><span class="si">{</span><span class="n">ch</span><span class="si">:</span><span class="s2">4d</span><span class="si">}</span><span class="s2">  [</span><span class="si">{</span><span class="n">bar</span><span class="si">}</span><span class="s2">]  </span><span class="si">{</span><span class="n">n</span><span class="si">:</span><span class="s2">2d</span><span class="si">}</span><span class="s2"> detection(s)&quot;</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">verbose</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">[WaveletDetector] Done.&quot;</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  Channels processed : </span><span class="si">{</span><span class="n">n_ch</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  Channels with dets : </span><span class="si">{</span><span class="n">channels_with_det</span><span class="si">}</span><span class="s2"> / </span><span class="si">{</span><span class="n">n_ch</span><span class="si">}</span><span class="s2">  &quot;</span>
+              <span class="sa">f</span><span class="s2">&quot;(</span><span class="si">{</span><span class="mi">100</span><span class="o">*</span><span class="n">channels_with_det</span><span class="o">/</span><span class="nb">max</span><span class="p">(</span><span class="n">n_ch</span><span class="p">,</span><span class="mi">1</span><span class="p">)</span><span class="si">:</span><span class="s2">.1f</span><span class="si">}</span><span class="s2">%)&quot;</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  Total detections   : </span><span class="si">{</span><span class="n">total_det</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  Peak channel       : ch </span><span class="si">{</span><span class="n">max_det_ch</span><span class="si">}</span><span class="s2">  (</span><span class="si">{</span><span class="n">max_det</span><span class="si">}</span><span class="s2"> detections)&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">n_ch</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  Mean per channel   : </span><span class="si">{</span><span class="n">total_det</span><span class="o">/</span><span class="n">n_ch</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">results</span></div>
+
+
+
+<span class="c1"># ---------------------------------------------------------------------------</span>
+<span class="c1"># WaveletDetector — class-based API</span>
+<span class="c1"># ---------------------------------------------------------------------------</span>
+
+<div class="viewcode-block" id="WaveletDetector">
+<a class="viewcode-back" href="../../autoapi/nemo/detect/index.html#nemo.detect.WaveletDetector">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">WaveletDetector</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Starlet-wavelet per-channel source detector for 3-D spectral cubes.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    scales : int</span>
+<span class="sd">        Total number of starlet scales (including coarse residual).</span>
+<span class="sd">    k_sigma : float</span>
+<span class="sd">        Detection threshold in units of per-scale noise.</span>
+<span class="sd">    use_scale : int</span>
+<span class="sd">        1-based detail band used for component detection.</span>
+<span class="sd">    min_area : int</span>
+<span class="sd">        Minimum component area in pixels.</span>
+<span class="sd">    thresh : float or None</span>
+<span class="sd">        Absolute lower bound on detection-plane value.  ``None`` uses 10 % of</span>
+<span class="sd">        the channel peak.</span>
+<span class="sd">    use_mean_map_sigma : bool</span>
+<span class="sd">        Anchor the noise estimate to the mean map across all channels rather</span>
+<span class="sd">        than computing it per-channel.  Prevents spurious detections on nearly</span>
+<span class="sd">        empty channels.</span>
+
+<span class="sd">    Examples</span>
+<span class="sd">    --------</span>
+<span class="sd">    &gt;&gt;&gt; detector = WaveletDetector(scales=6, k_sigma=5.0, use_scale=5)</span>
+<span class="sd">    &gt;&gt;&gt; detections = detector.detect(cube, channel_list)</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">scales</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">6</span><span class="p">,</span>
+        <span class="n">k_sigma</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">5.0</span><span class="p">,</span>
+        <span class="n">use_scale</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">5</span><span class="p">,</span>
+        <span class="n">min_area</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">20</span><span class="p">,</span>
+        <span class="n">thresh</span><span class="p">:</span> <span class="nb">float</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">use_mean_map_sigma</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">scales</span> <span class="o">=</span> <span class="n">scales</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">k_sigma</span> <span class="o">=</span> <span class="n">k_sigma</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">use_scale</span> <span class="o">=</span> <span class="n">use_scale</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">min_area</span> <span class="o">=</span> <span class="n">min_area</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">thresh</span> <span class="o">=</span> <span class="n">thresh</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">use_mean_map_sigma</span> <span class="o">=</span> <span class="n">use_mean_map_sigma</span>
+
+<div class="viewcode-block" id="WaveletDetector.detect">
+<a class="viewcode-back" href="../../autoapi/nemo/detect/index.html#nemo.detect.WaveletDetector.detect">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">detect</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">cube</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+        <span class="n">channel_list</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">verbose</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">ChannelDetection</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Run per-channel wavelet detection on *cube*.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        cube : (n_ch, H, W) float32</span>
+<span class="sd">        channel_list : list of int or None</span>
+<span class="sd">            Channel indices to process.  ``None`` processes all channels.</span>
+<span class="sd">        verbose : bool</span>
+<span class="sd">            Print per-channel progress and summary statistics.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        list[ChannelDetection]</span>
+<span class="sd">            One entry per channel in *channel_list*, in order.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">detect_cube_per_channel</span><span class="p">(</span>
+            <span class="n">cube</span><span class="p">,</span>
+            <span class="n">channel_list</span><span class="o">=</span><span class="n">channel_list</span><span class="p">,</span>
+            <span class="n">scales</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">scales</span><span class="p">,</span>
+            <span class="n">k_sigma</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">k_sigma</span><span class="p">,</span>
+            <span class="n">use_scale</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">use_scale</span><span class="p">,</span>
+            <span class="n">min_area</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">min_area</span><span class="p">,</span>
+            <span class="n">thresh</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">thresh</span><span class="p">,</span>
+            <span class="n">use_mean_map_sigma</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">use_mean_map_sigma</span><span class="p">,</span>
+            <span class="n">verbose</span><span class="o">=</span><span class="n">verbose</span><span class="p">,</span>
+        <span class="p">)</span></div>
+
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="k">return</span> <span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;WaveletDetector(scales=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">scales</span><span class="si">}</span><span class="s2">, k_sigma=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">k_sigma</span><span class="si">}</span><span class="s2">, &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;use_scale=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">use_scale</span><span class="si">}</span><span class="s2">, min_area=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">min_area</span><span class="si">}</span><span class="s2">)&quot;</span>
+        <span class="p">)</span></div>
+
+
+
+<span class="c1"># ---------------------------------------------------------------------------</span>
+<span class="c1"># CLI</span>
+<span class="c1"># ---------------------------------------------------------------------------</span>
+
+<div class="viewcode-block" id="main">
+<a class="viewcode-back" href="../../autoapi/nemo/detect/index.html#nemo.detect.main">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">main</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="n">ap</span> <span class="o">=</span> <span class="n">argparse</span><span class="o">.</span><span class="n">ArgumentParser</span><span class="p">(</span>
+        <span class="n">description</span><span class="o">=</span><span class="vm">__doc__</span><span class="p">,</span> <span class="n">formatter_class</span><span class="o">=</span><span class="n">argparse</span><span class="o">.</span><span class="n">RawTextHelpFormatter</span>
+    <span class="p">)</span>
+    <span class="n">ap</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">&quot;--cube&quot;</span><span class="p">,</span>             <span class="n">required</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                    <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Cube file: .h5/.hdf5, .fits/.fit, .npy, .npz&quot;</span><span class="p">)</span>
+    <span class="n">ap</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">&quot;--out&quot;</span><span class="p">,</span>              <span class="n">required</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                    <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Output directory&quot;</span><span class="p">)</span>
+    <span class="n">ap</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">&quot;--channels&quot;</span><span class="p">,</span>         <span class="n">default</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                    <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Comma-separated channel indices; default: auto active&quot;</span><span class="p">)</span>
+    <span class="n">ap</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">&quot;--active-threshold&quot;</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="nb">float</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="mf">0.05</span><span class="p">)</span>
+    <span class="n">ap</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">&quot;--scales&quot;</span><span class="p">,</span>           <span class="nb">type</span><span class="o">=</span><span class="nb">int</span><span class="p">,</span>   <span class="n">default</span><span class="o">=</span><span class="mi">6</span><span class="p">)</span>
+    <span class="n">ap</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">&quot;--k-sigma&quot;</span><span class="p">,</span>          <span class="nb">type</span><span class="o">=</span><span class="nb">float</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="mf">5.0</span><span class="p">)</span>
+    <span class="n">ap</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">&quot;--use-scale&quot;</span><span class="p">,</span>        <span class="nb">type</span><span class="o">=</span><span class="nb">int</span><span class="p">,</span>   <span class="n">default</span><span class="o">=</span><span class="mi">5</span><span class="p">)</span>
+    <span class="n">ap</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">&quot;--min-area&quot;</span><span class="p">,</span>         <span class="nb">type</span><span class="o">=</span><span class="nb">int</span><span class="p">,</span>   <span class="n">default</span><span class="o">=</span><span class="mi">20</span><span class="p">)</span>
+    <span class="n">ap</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">&quot;--thresh&quot;</span><span class="p">,</span>           <span class="nb">type</span><span class="o">=</span><span class="nb">float</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+    <span class="n">args</span> <span class="o">=</span> <span class="n">ap</span><span class="o">.</span><span class="n">parse_args</span><span class="p">()</span>
+
+    <span class="n">out</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">out</span><span class="p">)</span>
+    <span class="n">out</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">parents</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="n">cube</span> <span class="o">=</span> <span class="n">load_cube</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">cube</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Cube: </span><span class="si">{</span><span class="n">cube</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2">  range [</span><span class="si">{</span><span class="n">cube</span><span class="o">.</span><span class="n">min</span><span class="p">()</span><span class="si">:</span><span class="s2">.3e</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="n">cube</span><span class="o">.</span><span class="n">max</span><span class="p">()</span><span class="si">:</span><span class="s2">.3e</span><span class="si">}</span><span class="s2">]&quot;</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">args</span><span class="o">.</span><span class="n">channels</span><span class="p">:</span>
+        <span class="n">channel_list</span> <span class="o">=</span> <span class="p">[</span><span class="nb">int</span><span class="p">(</span><span class="n">c</span><span class="p">)</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">args</span><span class="o">.</span><span class="n">channels</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;,&quot;</span><span class="p">)]</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">channel_list</span> <span class="o">=</span> <span class="n">active_channels</span><span class="p">(</span><span class="n">cube</span><span class="p">,</span> <span class="n">threshold_frac</span><span class="o">=</span><span class="n">args</span><span class="o">.</span><span class="n">active_threshold</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Auto-selected </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">channel_list</span><span class="p">)</span><span class="si">}</span><span class="s2"> active channels &quot;</span>
+              <span class="sa">f</span><span class="s2">&quot;(ch </span><span class="si">{</span><span class="n">channel_list</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="s2">–</span><span class="si">{</span><span class="n">channel_list</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="si">}</span><span class="s2">)&quot;</span><span class="p">)</span>
+
+    <span class="n">detections</span> <span class="o">=</span> <span class="n">detect_cube_per_channel</span><span class="p">(</span>
+        <span class="n">cube</span><span class="p">,</span> <span class="n">channel_list</span><span class="o">=</span><span class="n">channel_list</span><span class="p">,</span>
+        <span class="n">scales</span><span class="o">=</span><span class="n">args</span><span class="o">.</span><span class="n">scales</span><span class="p">,</span> <span class="n">k_sigma</span><span class="o">=</span><span class="n">args</span><span class="o">.</span><span class="n">k_sigma</span><span class="p">,</span>
+        <span class="n">use_scale</span><span class="o">=</span><span class="n">args</span><span class="o">.</span><span class="n">use_scale</span><span class="p">,</span> <span class="n">min_area</span><span class="o">=</span><span class="n">args</span><span class="o">.</span><span class="n">min_area</span><span class="p">,</span> <span class="n">thresh</span><span class="o">=</span><span class="n">args</span><span class="o">.</span><span class="n">thresh</span><span class="p">,</span>
+    <span class="p">)</span>
+
+    <span class="k">for</span> <span class="n">det</span> <span class="ow">in</span> <span class="n">detections</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  ch </span><span class="si">{</span><span class="n">det</span><span class="o">.</span><span class="n">channel</span><span class="si">:</span><span class="s2">4d</span><span class="si">}</span><span class="s2">  </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">det</span><span class="o">.</span><span class="n">peaks</span><span class="p">)</span><span class="si">}</span><span class="s2"> components&quot;</span><span class="p">)</span>
+
+    <span class="n">summary</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s2">&quot;cube&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">cube</span><span class="p">),</span>
+        <span class="s2">&quot;channels&quot;</span><span class="p">:</span> <span class="n">channel_list</span><span class="p">,</span>
+        <span class="s2">&quot;n_detections_per_channel&quot;</span><span class="p">:</span> <span class="p">[</span><span class="nb">len</span><span class="p">(</span><span class="n">d</span><span class="o">.</span><span class="n">peaks</span><span class="p">)</span> <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="n">detections</span><span class="p">],</span>
+        <span class="s2">&quot;params&quot;</span><span class="p">:</span> <span class="nb">vars</span><span class="p">(</span><span class="n">args</span><span class="p">),</span>
+    <span class="p">}</span>
+    <span class="p">(</span><span class="n">out</span> <span class="o">/</span> <span class="s2">&quot;detections_summary.json&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">write_text</span><span class="p">(</span><span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">summary</span><span class="p">,</span> <span class="n">indent</span><span class="o">=</span><span class="mi">2</span><span class="p">))</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">Summary → </span><span class="si">{</span><span class="n">out</span><span class="si">}</span><span class="s2">/detections_summary.json&quot;</span><span class="p">)</span></div>
+
+
+
+<span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">&quot;__main__&quot;</span><span class="p">:</span>
+    <span class="n">main</span><span class="p">()</span>
+</pre></div>
+
+                </article>
+              
+
+              
+              
+              
+              
+                <footer class="prev-next-footer d-print-none">
+                  
+<div class="prev-next-area">
+</div>
+                </footer>
+              
+            </div>
+            
+            
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            
+<div class="bd-footer-content__inner container">
+  
+  <div class="footer-item">
+    
+<p class="component-author">
+By Arnab Lahiry
+</p>
+
+  </div>
+  
+  <div class="footer-item">
+    
+
+  <p class="copyright">
+    
+      © Copyright 2025, Arnab Lahiry.
+      <br/>
+    
+  </p>
+
+  </div>
+  
+  <div class="footer-item">
+    
+  </div>
+  
+  <div class="footer-item">
+    
+  </div>
+  
+</div>
+          </footer>
+        
+
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script defer src="../../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf"></script>
+<script defer src="../../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf"></script>
+
+  <footer class="bd-footer">
+  </footer>
+  </body>
+</html>

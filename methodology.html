@@ -1,0 +1,592 @@
+
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="./" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Methodology &#8212; N.E.M.O.</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  <!--
+    this give us a css class that will be invisible only if js is disabled
+  -->
+  <noscript>
+    <style>
+      .pst-js-only { display: none !important; }
+
+    </style>
+  </noscript>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="_static/styles/theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+<link href="_static/styles/pydata-sphinx-theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=8f2a1f02" />
+    <link rel="stylesheet" type="text/css" href="_static/styles/sphinx-book-theme.css?v=3c74b3bc" />
+    <link rel="stylesheet" type="text/css" href="_static/graphviz.css?v=4ae1632d" />
+    <link rel="stylesheet" type="text/css" href="_static/sphinx-design.min.css?v=95c83b7e" />
+  
+  <!-- So that users can add custom icons -->
+  <script src="_static/scripts/fontawesome.js?digest=8878045cc6db502f8baf"></script>
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
+<link rel="preload" as="script" href="_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
+
+    <script src="_static/documentation_options.js?v=a1637f0b"></script>
+    <script src="_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="_static/scripts/sphinx-book-theme.js?v=fab101a9"></script>
+    <script src="_static/design-tabs.js?v=f930bc37"></script>
+    <script defer="defer" src="https://cdn.jsdelivr.net/npm/mathjax@4/tex-mml-chtml.js"></script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'methodology';</script>
+    <link rel="canonical" href="https://arnablahiry.github.io/software/nemo/methodology.html" />
+    <link rel="icon" href="_static/nemo_ico.png"/>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Graphical Interface" href="gui.html" />
+    <link rel="prev" title="Quick Start" href="quickstart.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  <meta name="docsearch:version" content="" />
+  </head>
+  
+  
+  <body data-bs-spy="scroll" data-bs-target=".bd-toc-nav" data-offset="180" data-bs-root-margin="0px 0px -60%" data-default-mode="">
+
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
+
+  
+  <dialog id="pst-search-dialog">
+    
+<form class="bd-search d-flex align-items-center"
+      action="search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         placeholder="Search..."
+         aria-label="Search..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form>
+  </dialog>
+
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
+</div>
+
+  
+    <header class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+      <dialog id="pst-primary-sidebar-modal"></dialog>
+      <div id="pst-primary-sidebar" class="bd-sidebar-primary bd-sidebar">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+    
+    
+  </div>
+  
+    <div class="sidebar-primary-items__start sidebar-primary__section">
+        <div class="sidebar-primary-item">
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="index.html">
+  
+  
+  
+  
+  
+    
+    
+      
+    
+    
+    <img src="_static/nemo_ico.png" class="logo__image only-light" alt="N.E.M.O. - Home"/>
+    <img src="_static/nemo_ico.png" class="logo__image only-dark pst-js-only" alt="N.E.M.O. - Home"/>
+  
+  
+</a></div>
+        <div class="sidebar-primary-item">
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button></div>
+        <div class="sidebar-primary-item"><nav class="bd-links bd-docs-nav" aria-label="Main">
+    <div class="bd-toc-item navbar-nav active">
+        
+        <ul class="nav bd-sidenav bd-sidenav__home-link">
+            <li class="toctree-l1">
+                <a class="reference internal" href="index.html">
+                    N.E.M.O. [Non-stationary Extraction via Multiscale Optical-flow]
+                </a>
+            </li>
+        </ul>
+        <ul class="current nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="quickstart.html">Quick Start</a></li>
+<li class="toctree-l1 current active"><a class="current reference internal" href="#">Methodology</a></li>
+<li class="toctree-l1"><a class="reference internal" href="gui.html">Graphical Interface</a></li>
+<li class="toctree-l1"><a class="reference internal" href="results.html">Results: W2246-0526</a></li>
+<li class="toctree-l1"><a class="reference internal" href="cli.html">CLI Reference</a></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="autoapi/index.html">API Reference</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2 has-children"><a class="reference internal" href="autoapi/nemo/index.html">nemo</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="autoapi/nemo/denoise/index.html">nemo.denoise</a></li>
+<li class="toctree-l3"><a class="reference internal" href="autoapi/nemo/detect/index.html">nemo.detect</a></li>
+<li class="toctree-l3 has-children"><a class="reference internal" href="autoapi/nemo/gui/index.html">nemo.gui</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l4"><a class="reference internal" href="autoapi/nemo/gui/analysis/index.html">nemo.gui.analysis</a></li>
+<li class="toctree-l4"><a class="reference internal" href="autoapi/nemo/gui/app/index.html">nemo.gui.app</a></li>
+<li class="toctree-l4"><a class="reference internal" href="autoapi/nemo/gui/card/index.html">nemo.gui.card</a></li>
+<li class="toctree-l4"><a class="reference internal" href="autoapi/nemo/gui/dialogs/index.html">nemo.gui.dialogs</a></li>
+<li class="toctree-l4"><a class="reference internal" href="autoapi/nemo/gui/loaders/index.html">nemo.gui.loaders</a></li>
+<li class="toctree-l4"><a class="reference internal" href="autoapi/nemo/gui/viewers/index.html">nemo.gui.viewers</a></li>
+<li class="toctree-l4"><a class="reference internal" href="autoapi/nemo/gui/widgets/index.html">nemo.gui.widgets</a></li>
+</ul>
+</details></li>
+<li class="toctree-l3"><a class="reference internal" href="autoapi/nemo/track/index.html">nemo.track</a></li>
+<li class="toctree-l3"><a class="reference internal" href="autoapi/nemo/utils/index.html">nemo.utils</a></li>
+</ul>
+</details></li>
+</ul>
+</details></li>
+</ul>
+
+    </div>
+</nav></div>
+    </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+      <div class="sidebar-primary-item">
+<div id="ethical-ad-placement"
+      class="flat"
+      data-ea-publisher="readthedocs"
+      data-ea-type="readthedocs-sidebar"
+      data-ea-manual="true">
+</div></div>
+  </div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+
+<div class="sbt-scroll-pixel-helper"></div>
+
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item"><button class="sidebar-toggle primary-toggle btn btn-sm" title="Toggle primary sidebar" data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <span class="fa-solid fa-bars"></span>
+</button></div>
+      
+    </div>
+  
+  
+    <div class="header-article-items__end">
+      
+        <div class="header-article-item">
+
+<div class="article-header-buttons">
+
+
+
+
+
+<div class="dropdown dropdown-source-buttons">
+  <button class="btn dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Source repositories">
+    <i class="fab fa-github"></i>
+  </button>
+  <ul class="dropdown-menu">
+      
+      
+      
+      <li><a href="https://github.com/arnablahiry/nemo" target="_blank"
+   class="btn btn-sm btn-source-repository-button dropdown-item"
+   title="Source repository"
+   data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fab fa-github"></i>
+  </span>
+<span class="btn__text-container">Repository</span>
+</a>
+</li>
+      
+      
+      
+      
+      <li><a href="https://github.com/arnablahiry/nemo/issues/new?title=Issue%20on%20page%20%2Fmethodology.html&body=Your%20issue%20content%20here." target="_blank"
+   class="btn btn-sm btn-source-issues-button dropdown-item"
+   title="Open an issue"
+   data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-lightbulb"></i>
+  </span>
+<span class="btn__text-container">Open issue</span>
+</a>
+</li>
+      
+  </ul>
+</div>
+
+
+
+
+<button onclick="toggleFullScreen()"
+  class="btn btn-sm btn-fullscreen-button pst-navbar-icon"
+  title="Fullscreen mode"
+  data-bs-placement="bottom" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-expand"></i>
+  </span>
+
+</button>
+
+
+
+<button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button pst-js-only" aria-label="Color mode" data-bs-title="Color mode"  data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <i class="theme-switch fa-solid fa-sun                fa-lg" data-mode="light" title="Light"></i>
+  <i class="theme-switch fa-solid fa-moon               fa-lg" data-mode="dark"  title="Dark"></i>
+  <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"  title="System Settings"></i>
+</button>
+
+
+<button class="btn btn-sm pst-navbar-icon search-button search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="fa-solid fa-magnifying-glass fa-lg"></i>
+</button>
+<button class="sidebar-toggle secondary-toggle btn btn-sm pst-navbar-icon" title="Toggle secondary sidebar" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <span class="fa-solid fa-list"></span>
+</button>
+</div></div>
+      
+    </div>
+  
+</div>
+</div>
+              
+              
+
+<div id="jb-print-docs-body" class="onlyprint">
+    <h1>Methodology</h1>
+    <!-- Table of contents -->
+    <div id="print-main-content">
+        <div id="jb-print-toc">
+            
+            <div>
+                <h2> Contents </h2>
+            </div>
+            <nav aria-label="Page">
+                <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#stage-1-starlet-wavelet-detection">Stage 1 — Starlet Wavelet Detection</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#scale-adaptive-thresholding">Scale-adaptive thresholding</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#stage-2-masked-tv-l1-optical-flow">Stage 2 — Masked TV-L1 Optical Flow</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#stage-3-track-linking">Stage 3 — Track Linking</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#forward-pass-steps-per-transition">Forward pass — steps per transition</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#backward-pass-and-split-reconciliation">Backward pass and split reconciliation</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#stage-4-kinematic-classification">Stage 4 — Kinematic Classification</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#stage-5-false-detection-removal">Stage 5 — False-Detection Removal</a></li>
+</ul>
+            </nav>
+        </div>
+    </div>
+</div>
+
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+  <section id="methodology">
+<h1>Methodology<a class="headerlink" href="#methodology" title="Link to this heading">#</a></h1>
+<section id="stage-1-starlet-wavelet-detection">
+<h2>Stage 1 — Starlet Wavelet Detection<a class="headerlink" href="#stage-1-starlet-wavelet-detection" title="Link to this heading">#</a></h2>
+<p>Each channel slice <span class="math notranslate nohighlight">\(I_c \in \mathbb{R}^{H \times W}\)</span> is independently
+analysed with the <strong>undecimated isotropic wavelet transform</strong> (à trous IUWT,
+also known as the starlet transform).</p>
+<p>The transform decomposes a 2-D image into <span class="math notranslate nohighlight">\(J-1\)</span> detail bands plus a
+coarse residual:</p>
+<div class="math notranslate nohighlight">
+\[\mathcal{W}[I] = \{w_1, w_2, \ldots, w_{J-1}, c_{J-1}\}\]</div>
+<p>where the detail coefficient at scale <span class="math notranslate nohighlight">\(j\)</span> is</p>
+<div class="math notranslate nohighlight">
+\[w_j = c_{j-1} - c_j, \qquad j = 1, \ldots, J-1\]</div>
+<p>and each successive approximation <span class="math notranslate nohighlight">\(c_j\)</span> is obtained by a separable
+à trous B₃-spline convolution with dilation <span class="math notranslate nohighlight">\(2^{j-1}\)</span>:</p>
+<div class="math notranslate nohighlight">
+\[c_j = h^{(j)} \star c_{j-1}, \qquad
+h^{(j)}[k] = \tfrac{1}{16}\bigl[1,\,4,\,6,\,4,\,1\bigr]
+\text{ at step } 2^{j-1}\]</div>
+<p>The B₃-spline kernel is applied in two separable passes (row then column)
+via PyTorch dilated convolution, giving <span class="math notranslate nohighlight">\(\mathcal{O}(5HW)\)</span> per scale
+and <span class="math notranslate nohighlight">\(\mathcal{O}(5JHW)\)</span> total, independent of <span class="math notranslate nohighlight">\(j\)</span>.</p>
+<section id="scale-adaptive-thresholding">
+<h3>Scale-adaptive thresholding<a class="headerlink" href="#scale-adaptive-thresholding" title="Link to this heading">#</a></h3>
+<p>The noise level at each detail scale is estimated from the
+Median Absolute Deviation (MAD):</p>
+<div class="math notranslate nohighlight">
+\[\hat{\sigma}_j = 1.4826 \times
+\operatorname{median}\bigl(|w_j - \operatorname{median}(w_j)|\bigr)\]</div>
+<p>To prevent collapse of the per-channel MAD on nearly empty channels, the
+noise reference is anchored to the <strong>mean-map decomposition</strong>:</p>
+<div class="math notranslate nohighlight">
+\[\bar{I} = \frac{1}{|C|} \sum_{c \in C} I_c, \qquad
+\hat{\sigma}_j^{\text{ref}} = \hat{\sigma}_j(\bar{I}) \cdot \sqrt{|C|}\]</div>
+<p>A pixel is declared significant if <span class="math notranslate nohighlight">\(|w_j| &gt; k_\sigma \cdot \hat{\sigma}_j^{\text{ref}}\)</span>,
+where <span class="math notranslate nohighlight">\(k_\sigma\)</span> is a user-controlled threshold (<code class="docutils literal notranslate"><span class="pre">k_sigma</span></code>).</p>
+</section>
+</section>
+<section id="stage-2-masked-tv-l1-optical-flow">
+<h2>Stage 2 — Masked TV-L1 Optical Flow<a class="headerlink" href="#stage-2-masked-tv-l1-optical-flow" title="Link to this heading">#</a></h2>
+<p>NEMO restricts the TV-L1 solver to the <strong>union of source footprints</strong> from
+consecutive channel pair <span class="math notranslate nohighlight">\((c,\,c+1)\)</span>:</p>
+<div class="math notranslate nohighlight">
+\[\Omega_{c,c+1} = \Bigl(\bigcup_b M_b^{(c)}\Bigr) \cup
+                 \Bigl(\bigcup_b M_b^{(c+1)}\Bigr)\]</div>
+<p>The flow field <span class="math notranslate nohighlight">\(\mathbf{v}^* = (v_r, v_c) \in \mathbb{R}^{2 \times H \times W}\)</span>
+is obtained by minimising:</p>
+<div class="math notranslate nohighlight">
+\[\mathbf{v}^* = \underset{\mathbf{v}}{\arg\min}
+\bigl\|\nabla \tilde{I}_c + (\mathbf{v} \cdot \nabla)\tilde{I}_c\bigr\|_1
++ \lambda \|\nabla \mathbf{v}\|_1\]</div>
+<p>The union mask (rather than intersection) is critical: when a source splits
+into a new spatial location, the two components may not overlap, so an
+intersection mask would yield <span class="math notranslate nohighlight">\(\mathbf{v} = 0\)</span> and misclassify
+the split-off component as a new independent source.</p>
+</section>
+<section id="stage-3-track-linking">
+<h2>Stage 3 — Track Linking<a class="headerlink" href="#stage-3-track-linking" title="Link to this heading">#</a></h2>
+<p>Track linking uses <strong>advected masks</strong> propagated channel-by-channel through
+the TV-L1 flow via Catmull-Rom cubic interpolation.  Given a confirmed
+component footprint <span class="math notranslate nohighlight">\(M^{(t)}\)</span> and flow <span class="math notranslate nohighlight">\(\mathbf{v}\)</span>, the
+advected weight map is:</p>
+<div class="math notranslate nohighlight">
+\[\mathcal{A}[M, \mathbf{v}](y', x') =
+\sum_{(y,x):\,M(y,x)=1}
+\delta\!\bigl(y' - \lfloor y + v_r(y,x)\rceil\bigr)\,
+\delta\!\bigl(x' - \lfloor x + v_c(y,x)\rceil\bigr)\]</div>
+<p>Track linking runs <strong>twice</strong> over the cube — forward (ch 0 → N) then
+backward (ch N → 0) — and uses the same three-step matching algorithm
+per channel transition in each pass.</p>
+<section id="forward-pass-steps-per-transition">
+<h3>Forward pass — steps per transition<a class="headerlink" href="#forward-pass-steps-per-transition" title="Link to this heading">#</a></h3>
+<p><strong>A. Hungarian continuation</strong> — negative pixel-overlap cost matrix
+<span class="math notranslate nohighlight">\(\mathcal{C}_{ij}\)</span> solved optimally; pairs above <code class="docutils literal notranslate"><span class="pre">min_match_overlap</span></code>
+are accepted as continuations and the advected mask is reset to the matched
+component footprint.</p>
+<p><strong>B. Merge detection</strong> — unmatched tracks whose advected mask overlaps a
+component already claimed by another track record a <code class="docutils literal notranslate"><span class="pre">merge_into</span></code> event
+and are deactivated.</p>
+<p><strong>C. Gap bridging and new tracks</strong> — remaining unmatched tracks have their
+advected mask frozen and gap age incremented; tracks exceeding
+<code class="docutils literal notranslate"><span class="pre">max_gap_channels</span></code> are deactivated.  Unclaimed components seed new
+independent tracks — no split attribution occurs in the forward pass.</p>
+</section>
+<section id="backward-pass-and-split-reconciliation">
+<h3>Backward pass and split reconciliation<a class="headerlink" href="#backward-pass-and-split-reconciliation" title="Link to this heading">#</a></h3>
+<p>The same A–B–C algorithm is run in reverse on the negated flow field.
+A <strong>split</strong> in the forward direction (one footprint fragmenting into two)
+appears as a <strong>merge</strong> in the backward direction, so the backward pass
+detects it symmetrically without any separate split logic.</p>
+<p>After both passes, <code class="xref py py-func docutils literal notranslate"><span class="pre">_reconcile_splits()</span></code> matches backward
+tracks to forward tracks by trajectory voting (centroids within 5 px at
+shared channels) and transfers each backward <code class="docutils literal notranslate"><span class="pre">merge_into</span></code> event as a
+<code class="docutils literal notranslate"><span class="pre">split_from</span></code> / <code class="docutils literal notranslate"><span class="pre">split_at</span></code> annotation on the corresponding forward tracks.</p>
+<p>Splits and merges are then connected by union-find to form <strong>sources</strong> —
+physical objects that may fragment and rejoin across channels.</p>
+</section>
+</section>
+<section id="stage-4-kinematic-classification">
+<h2>Stage 4 — Kinematic Classification<a class="headerlink" href="#stage-4-kinematic-classification" title="Link to this heading">#</a></h2>
+<p>A track <span class="math notranslate nohighlight">\(\tau\)</span> is <strong>kinematically active</strong> if its cumulative centroid
+path length</p>
+<div class="math notranslate nohighlight">
+\[\Delta_\tau = \sum_{k=1}^{N-1}
+\sqrt{(r_{k+1}-r_k)^2 + (x_{k+1}-x_k)^2} \;\geq\; \delta_{\min}\]</div>
+<p>or if it was involved in any split or merge event.</p>
+</section>
+<section id="stage-5-false-detection-removal">
+<h2>Stage 5 — False-Detection Removal<a class="headerlink" href="#stage-5-false-detection-removal" title="Link to this heading">#</a></h2>
+<p>Each source is scored on two metrics:</p>
+<p><strong>Flow-advection IoU</strong> — measures how coherently the footprint follows the
+flow field channel-to-channel.  Real sources score <span class="math notranslate nohighlight">\(\text{IoU} \gtrsim 0.25\)</span>;
+artefacts score near zero.</p>
+<p><strong>Wavelet abruptness</strong> — ratio of edge-channel wavelet flux to peak flux.
+Step-function artefacts score <span class="math notranslate nohighlight">\(\alpha \approx 1\)</span>; real sources fade
+smoothly in and out.</p>
+<p>A source is flagged as a false detection if:</p>
+<div class="math notranslate nohighlight">
+\[\alpha &gt; \alpha_{\text{thresh}} \quad\text{OR}\quad
+\bigl(\text{IoU}_{\text{flow}} &lt; \text{IoU}_{\text{thresh}}
+\;\text{ AND }\; |C| &lt; N_{\text{short}}\bigr)\]</div>
+</section>
+</section>
+
+
+                </article>
+              
+
+              
+              
+              
+              
+                <footer class="prev-next-footer d-print-none">
+                  
+<div class="prev-next-area">
+    <a class="left-prev"
+       href="quickstart.html"
+       title="previous page">
+      <i class="fa-solid fa-angle-left"></i>
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">previous</p>
+        <p class="prev-next-title">Quick Start</p>
+      </div>
+    </a>
+    <a class="right-next"
+       href="gui.html"
+       title="next page">
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">next</p>
+        <p class="prev-next-title">Graphical Interface</p>
+      </div>
+      <i class="fa-solid fa-angle-right"></i>
+    </a>
+</div>
+                </footer>
+              
+            </div>
+            
+            
+              
+                <dialog id="pst-secondary-sidebar-modal"></dialog>
+                <div id="pst-secondary-sidebar" class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+
+
+  <div class="sidebar-secondary-item"><div
+    id="pst-page-navigation-heading-2"
+    class="page-toc tocsection onthispage">
+    <i class="fa-solid fa-list"></i> Contents
+  </div>
+  <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
+    <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#stage-1-starlet-wavelet-detection">Stage 1 — Starlet Wavelet Detection</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#scale-adaptive-thresholding">Scale-adaptive thresholding</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#stage-2-masked-tv-l1-optical-flow">Stage 2 — Masked TV-L1 Optical Flow</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#stage-3-track-linking">Stage 3 — Track Linking</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#forward-pass-steps-per-transition">Forward pass — steps per transition</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#backward-pass-and-split-reconciliation">Backward pass and split reconciliation</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#stage-4-kinematic-classification">Stage 4 — Kinematic Classification</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#stage-5-false-detection-removal">Stage 5 — False-Detection Removal</a></li>
+</ul>
+  </nav></div>
+
+</div></div>
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            
+<div class="bd-footer-content__inner container">
+  
+  <div class="footer-item">
+    
+<p class="component-author">
+By Arnab Lahiry
+</p>
+
+  </div>
+  
+  <div class="footer-item">
+    
+
+  <p class="copyright">
+    
+      © Copyright 2025, Arnab Lahiry.
+      <br/>
+    
+  </p>
+
+  </div>
+  
+  <div class="footer-item">
+    
+  </div>
+  
+  <div class="footer-item">
+    
+  </div>
+  
+</div>
+          </footer>
+        
+
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script defer src="_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf"></script>
+<script defer src="_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf"></script>
+
+  <footer class="bd-footer">
+  </footer>
+  </body>
+</html>

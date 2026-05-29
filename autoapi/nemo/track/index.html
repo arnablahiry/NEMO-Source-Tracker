@@ -1,0 +1,1011 @@
+
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="../../../" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>nemo.track &#8212; N.E.M.O.</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  <!--
+    this give us a css class that will be invisible only if js is disabled
+  -->
+  <noscript>
+    <style>
+      .pst-js-only { display: none !important; }
+
+    </style>
+  </noscript>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="../../../_static/styles/theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+<link href="../../../_static/styles/pydata-sphinx-theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+
+    <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=8f2a1f02" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/styles/sphinx-book-theme.css?v=3c74b3bc" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/graphviz.css?v=4ae1632d" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/sphinx-design.min.css?v=95c83b7e" />
+  
+  <!-- So that users can add custom icons -->
+  <script src="../../../_static/scripts/fontawesome.js?digest=8878045cc6db502f8baf"></script>
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="../../../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
+<link rel="preload" as="script" href="../../../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
+
+    <script src="../../../_static/documentation_options.js?v=a1637f0b"></script>
+    <script src="../../../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../../../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="../../../_static/scripts/sphinx-book-theme.js?v=fab101a9"></script>
+    <script src="../../../_static/design-tabs.js?v=f930bc37"></script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'autoapi/nemo/track/index';</script>
+    <link rel="canonical" href="https://arnablahiry.github.io/software/nemo/autoapi/nemo/track/index.html" />
+    <link rel="icon" href="../../../_static/nemo_ico.png"/>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+    <link rel="next" title="nemo.utils" href="../utils/index.html" />
+    <link rel="prev" title="nemo.gui.widgets" href="../gui/widgets/index.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  <meta name="docsearch:version" content="" />
+  </head>
+  
+  
+  <body data-bs-spy="scroll" data-bs-target=".bd-toc-nav" data-offset="180" data-bs-root-margin="0px 0px -60%" data-default-mode="">
+
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
+
+  
+  <dialog id="pst-search-dialog">
+    
+<form class="bd-search d-flex align-items-center"
+      action="../../../search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         placeholder="Search..."
+         aria-label="Search..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form>
+  </dialog>
+
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
+</div>
+
+  
+    <header class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+      <dialog id="pst-primary-sidebar-modal"></dialog>
+      <div id="pst-primary-sidebar" class="bd-sidebar-primary bd-sidebar">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+    
+    
+  </div>
+  
+    <div class="sidebar-primary-items__start sidebar-primary__section">
+        <div class="sidebar-primary-item">
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="../../../index.html">
+  
+  
+  
+  
+  
+    
+    
+      
+    
+    
+    <img src="../../../_static/nemo_ico.png" class="logo__image only-light" alt="N.E.M.O. - Home"/>
+    <img src="../../../_static/nemo_ico.png" class="logo__image only-dark pst-js-only" alt="N.E.M.O. - Home"/>
+  
+  
+</a></div>
+        <div class="sidebar-primary-item">
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button></div>
+        <div class="sidebar-primary-item"><nav class="bd-links bd-docs-nav" aria-label="Main">
+    <div class="bd-toc-item navbar-nav active">
+        
+        <ul class="nav bd-sidenav bd-sidenav__home-link">
+            <li class="toctree-l1">
+                <a class="reference internal" href="../../../index.html">
+                    N.E.M.O. [Non-stationary Extraction via Multiscale Optical-flow]
+                </a>
+            </li>
+        </ul>
+        <ul class="current nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="../../../installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../quickstart.html">Quick Start</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../methodology.html">Methodology</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../gui.html">Graphical Interface</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../results.html">Results: W2246-0526</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../cli.html">CLI Reference</a></li>
+<li class="toctree-l1 current active has-children"><a class="reference internal" href="../../index.html">API Reference</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
+<li class="toctree-l2 current active has-children"><a class="reference internal" href="../index.html">nemo</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
+<li class="toctree-l3"><a class="reference internal" href="../denoise/index.html">nemo.denoise</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../detect/index.html">nemo.detect</a></li>
+<li class="toctree-l3 has-children"><a class="reference internal" href="../gui/index.html">nemo.gui</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l4"><a class="reference internal" href="../gui/analysis/index.html">nemo.gui.analysis</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../gui/app/index.html">nemo.gui.app</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../gui/card/index.html">nemo.gui.card</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../gui/dialogs/index.html">nemo.gui.dialogs</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../gui/loaders/index.html">nemo.gui.loaders</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../gui/viewers/index.html">nemo.gui.viewers</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../gui/widgets/index.html">nemo.gui.widgets</a></li>
+</ul>
+</details></li>
+<li class="toctree-l3 current active"><a class="current reference internal" href="#">nemo.track</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../utils/index.html">nemo.utils</a></li>
+</ul>
+</details></li>
+</ul>
+</details></li>
+</ul>
+
+    </div>
+</nav></div>
+    </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+      <div class="sidebar-primary-item">
+<div id="ethical-ad-placement"
+      class="flat"
+      data-ea-publisher="readthedocs"
+      data-ea-type="readthedocs-sidebar"
+      data-ea-manual="true">
+</div></div>
+  </div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+
+<div class="sbt-scroll-pixel-helper"></div>
+
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item"><button class="sidebar-toggle primary-toggle btn btn-sm" title="Toggle primary sidebar" data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <span class="fa-solid fa-bars"></span>
+</button></div>
+      
+    </div>
+  
+  
+    <div class="header-article-items__end">
+      
+        <div class="header-article-item">
+
+<div class="article-header-buttons">
+
+
+
+
+
+<div class="dropdown dropdown-source-buttons">
+  <button class="btn dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Source repositories">
+    <i class="fab fa-github"></i>
+  </button>
+  <ul class="dropdown-menu">
+      
+      
+      
+      <li><a href="https://github.com/arnablahiry/nemo" target="_blank"
+   class="btn btn-sm btn-source-repository-button dropdown-item"
+   title="Source repository"
+   data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fab fa-github"></i>
+  </span>
+<span class="btn__text-container">Repository</span>
+</a>
+</li>
+      
+      
+      
+      
+      <li><a href="https://github.com/arnablahiry/nemo/issues/new?title=Issue%20on%20page%20%2Fautoapi/nemo/track/index.html&body=Your%20issue%20content%20here." target="_blank"
+   class="btn btn-sm btn-source-issues-button dropdown-item"
+   title="Open an issue"
+   data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-lightbulb"></i>
+  </span>
+<span class="btn__text-container">Open issue</span>
+</a>
+</li>
+      
+  </ul>
+</div>
+
+
+
+
+<button onclick="toggleFullScreen()"
+  class="btn btn-sm btn-fullscreen-button pst-navbar-icon"
+  title="Fullscreen mode"
+  data-bs-placement="bottom" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-expand"></i>
+  </span>
+
+</button>
+
+
+
+<button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button pst-js-only" aria-label="Color mode" data-bs-title="Color mode"  data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <i class="theme-switch fa-solid fa-sun                fa-lg" data-mode="light" title="Light"></i>
+  <i class="theme-switch fa-solid fa-moon               fa-lg" data-mode="dark"  title="Dark"></i>
+  <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"  title="System Settings"></i>
+</button>
+
+
+<button class="btn btn-sm pst-navbar-icon search-button search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="fa-solid fa-magnifying-glass fa-lg"></i>
+</button>
+<button class="sidebar-toggle secondary-toggle btn btn-sm pst-navbar-icon" title="Toggle secondary sidebar" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <span class="fa-solid fa-list"></span>
+</button>
+</div></div>
+      
+    </div>
+  
+</div>
+</div>
+              
+              
+
+<div id="jb-print-docs-body" class="onlyprint">
+    <h1>nemo.track</h1>
+    <!-- Table of contents -->
+    <div id="print-main-content">
+        <div id="jb-print-toc">
+            
+            <div>
+                <h2> Contents </h2>
+            </div>
+            <nav aria-label="Page">
+                <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#output">Output</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#classes">Classes</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#functions">Functions</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#module-contents">Module Contents</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#nemo.track.masked_flow_tvl1"><code class="docutils literal notranslate"><span class="pre">masked_flow_tvl1()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#nemo.track.compute_flow_sequence"><code class="docutils literal notranslate"><span class="pre">compute_flow_sequence()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#nemo.track.link_tracks"><code class="docutils literal notranslate"><span class="pre">link_tracks()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#nemo.track.classify_kinematic"><code class="docutils literal notranslate"><span class="pre">classify_kinematic()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#nemo.track.group_into_sources"><code class="docutils literal notranslate"><span class="pre">group_into_sources()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#nemo.track.classify_sources"><code class="docutils literal notranslate"><span class="pre">classify_sources()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#nemo.track.run_flow_tracker"><code class="docutils literal notranslate"><span class="pre">run_flow_tracker()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#nemo.track.TrackingResult"><code class="docutils literal notranslate"><span class="pre">TrackingResult</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#nemo.track.TrackingResult.detections"><code class="docutils literal notranslate"><span class="pre">TrackingResult.detections</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#nemo.track.TrackingResult.flow_seq"><code class="docutils literal notranslate"><span class="pre">TrackingResult.flow_seq</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#nemo.track.TrackingResult.tracks"><code class="docutils literal notranslate"><span class="pre">TrackingResult.tracks</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#nemo.track.TrackingResult.sources"><code class="docutils literal notranslate"><span class="pre">TrackingResult.sources</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#nemo.track.TrackingResult.false_detections"><code class="docutils literal notranslate"><span class="pre">TrackingResult.false_detections</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#nemo.track.TrackingResult.src_data"><code class="docutils literal notranslate"><span class="pre">TrackingResult.src_data</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#nemo.track.TrackingResult.src_colors"><code class="docutils literal notranslate"><span class="pre">TrackingResult.src_colors</span></code></a></li>
+</ul>
+</li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#nemo.track.FlowTracker"><code class="docutils literal notranslate"><span class="pre">FlowTracker</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#nemo.track.FlowTracker.detector"><code class="docutils literal notranslate"><span class="pre">FlowTracker.detector</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#nemo.track.FlowTracker.min_match_overlap"><code class="docutils literal notranslate"><span class="pre">FlowTracker.min_match_overlap</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#nemo.track.FlowTracker.max_gap_channels"><code class="docutils literal notranslate"><span class="pre">FlowTracker.max_gap_channels</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#nemo.track.FlowTracker.min_displacement"><code class="docutils literal notranslate"><span class="pre">FlowTracker.min_displacement</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#nemo.track.FlowTracker.wav_scale_idx"><code class="docutils literal notranslate"><span class="pre">FlowTracker.wav_scale_idx</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#nemo.track.FlowTracker.wav_abrupt_thresh"><code class="docutils literal notranslate"><span class="pre">FlowTracker.wav_abrupt_thresh</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#nemo.track.FlowTracker.flow_iou_thresh"><code class="docutils literal notranslate"><span class="pre">FlowTracker.flow_iou_thresh</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#nemo.track.FlowTracker.short_det_max"><code class="docutils literal notranslate"><span class="pre">FlowTracker.short_det_max</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#nemo.track.FlowTracker.run"><code class="docutils literal notranslate"><span class="pre">FlowTracker.run()</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#nemo.track.FlowTracker.run_from_detections"><code class="docutils literal notranslate"><span class="pre">FlowTracker.run_from_detections()</span></code></a></li>
+</ul>
+</li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#nemo.track.main"><code class="docutils literal notranslate"><span class="pre">main()</span></code></a></li>
+</ul>
+</li>
+</ul>
+            </nav>
+        </div>
+    </div>
+</div>
+
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+  <section id="module-nemo.track">
+<span id="nemo-track"></span><h1>nemo.track<a class="headerlink" href="#module-nemo.track" title="Link to this heading">#</a></h1>
+<p>Flow-guided source tracker for per-channel wavelet detections.</p>
+<p>Takes the list of per-channel detections produced by
+<code class="docutils literal notranslate"><span class="pre">wavelet_detections.detect_cube_per_channel</span></code> and runs a four-stage pipeline:</p>
+<dl>
+<dt>Stage 1 — Masked optical flow</dt><dd><p>TV-L1 flow is computed between every consecutive channel pair, but only
+inside the intersection of the two channels’ union footprint masks.
+Zeroing the images outside detected sources prevents artefact-level flow
+vectors from leaking into the tracking step.</p>
+</dd>
+<dt>Stage 2 — Track linking with split/merge detection</dt><dd><p>Two-pass approach for symmetric split and merge detection.</p>
+<p>Forward pass (ch_0 → ch_N): advected masks are propagated through the flow and
+matched to component detections via Hungarian assignment.  Unmatched predictions
+that overlap an already-claimed component are flagged as <strong>merges</strong>.  Unmatched
+detections start new independent tracks.</p>
+<p>Backward pass (ch_N → ch_0): the same algorithm runs on reversed detections
+and negated flow.  A forward split (one parent → two children) appears as a
+backward merge (two tracks → one component) and is captured symmetrically by the
+same merge-detection step.</p>
+<p>Reconciliation maps backward merge events onto forward tracks to annotate
+<code class="docutils literal notranslate"><span class="pre">split_from</span></code> and <code class="docutils literal notranslate"><span class="pre">split_at</span></code> fields.  No Euclidean distance is used
+anywhere in split or merge detection.</p>
+</dd>
+<dt>Stage 3 — Kinematic classification</dt><dd><p>A track is <strong>kinematically active</strong> if its cumulative centroid displacement
+across channels exceeds MIN_DISPLACEMENT pixels, or if it was involved in
+a split or merge event.</p>
+</dd>
+<dt>Stage 4 — Source grouping</dt><dd><p>Tracks connected by split_from / merge_into relationships are grouped into
+<strong>sources</strong> via union-find.  A source represents one physical object whose
+emission footprint may split into several components across channels (due to
+kinematics / Doppler shear) and later rejoin.</p>
+</dd>
+</dl>
+<section id="output">
+<h2>Output<a class="headerlink" href="#output" title="Link to this heading">#</a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">run_flow_tracker</span></code> returns a <a class="reference internal" href="#nemo.track.TrackingResult" title="nemo.track.TrackingResult"><code class="xref py py-class docutils literal notranslate"><span class="pre">TrackingResult</span></code></a> dataclass with:</p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">detections</span></code></dt><dd><p>list[ChannelDetection], one per processed channel.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">flow_seq</span></code></dt><dd><p>list of (ch_ref, ch_tgt, flow (2,H,W), joint_mask) tuples.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">tracks</span></code></dt><dd><p>list of track dicts.  Each dict contains <code class="docutils literal notranslate"><span class="pre">id</span></code>, <code class="docutils literal notranslate"><span class="pre">source_id</span></code>,
+<code class="docutils literal notranslate"><span class="pre">trajectory</span></code>, <code class="docutils literal notranslate"><span class="pre">masks</span></code>, <code class="docutils literal notranslate"><span class="pre">split_at</span></code>, <code class="docutils literal notranslate"><span class="pre">split_from</span></code>,
+<code class="docutils literal notranslate"><span class="pre">merge_into</span></code>, <code class="docutils literal notranslate"><span class="pre">displacement</span></code>, <code class="docutils literal notranslate"><span class="pre">has_split</span></code>, <code class="docutils literal notranslate"><span class="pre">kinematic</span></code>.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">sources</span></code></dt><dd><p>list of source dicts.  Each dict contains <code class="docutils literal notranslate"><span class="pre">id</span></code>, <code class="docutils literal notranslate"><span class="pre">track_ids</span></code>,
+<code class="docutils literal notranslate"><span class="pre">channels</span></code>, <code class="docutils literal notranslate"><span class="pre">n_channels</span></code>, <code class="docutils literal notranslate"><span class="pre">split_events</span></code>, <code class="docutils literal notranslate"><span class="pre">merge_events</span></code>.</p>
+</dd>
+</dl>
+<p>Usage (standalone):</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">python</span> <span class="n">flow_tracker</span><span class="o">.</span><span class="n">py</span> \
+    <span class="o">--</span><span class="n">cube</span>  <span class="n">data</span><span class="o">/</span><span class="n">clean_cube</span><span class="o">.</span><span class="n">npy</span> \
+    <span class="o">--</span><span class="n">out</span>   <span class="o">/</span><span class="n">tmp</span><span class="o">/</span><span class="n">tracks</span> \
+    <span class="o">--</span><span class="n">channels</span> <span class="mi">70</span><span class="p">,</span><span class="mi">74</span> \
+    <span class="o">--</span><span class="nb">min</span><span class="o">-</span><span class="n">match</span><span class="o">-</span><span class="n">overlap</span> <span class="mi">5</span> <span class="o">--</span><span class="nb">min</span><span class="o">-</span><span class="n">displacement</span> <span class="mi">3</span>
+</pre></div>
+</div>
+</section>
+<section id="classes">
+<h2>Classes<a class="headerlink" href="#classes" title="Link to this heading">#</a></h2>
+<div class="pst-scrollable-table-container"><table class="autosummary longtable table">
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="#nemo.track.TrackingResult" title="nemo.track.TrackingResult"><code class="xref py py-obj docutils literal notranslate"><span class="pre">TrackingResult</span></code></a></p></td>
+<td><p>Output of <a class="reference internal" href="#nemo.track.FlowTracker.run" title="nemo.track.FlowTracker.run"><code class="xref py py-meth docutils literal notranslate"><span class="pre">FlowTracker.run()</span></code></a>.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#nemo.track.FlowTracker" title="nemo.track.FlowTracker"><code class="xref py py-obj docutils literal notranslate"><span class="pre">FlowTracker</span></code></a></p></td>
+<td><p>Full STORM pipeline: wavelet detection → optical flow → track linking</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="functions">
+<h2>Functions<a class="headerlink" href="#functions" title="Link to this heading">#</a></h2>
+<div class="pst-scrollable-table-container"><table class="autosummary longtable table">
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="#nemo.track.masked_flow_tvl1" title="nemo.track.masked_flow_tvl1"><code class="xref py py-obj docutils literal notranslate"><span class="pre">masked_flow_tvl1</span></code></a>(→ numpy.ndarray)</p></td>
+<td><p>TV-L1 optical flow restricted to <em>mask</em> pixels.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#nemo.track.compute_flow_sequence" title="nemo.track.compute_flow_sequence"><code class="xref py py-obj docutils literal notranslate"><span class="pre">compute_flow_sequence</span></code></a>(→ list[tuple[int, int, ...)</p></td>
+<td><p>Compute masked TV-L1 flow for every consecutive detection pair.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#nemo.track.link_tracks" title="nemo.track.link_tracks"><code class="xref py py-obj docutils literal notranslate"><span class="pre">link_tracks</span></code></a>(→ list[dict])</p></td>
+<td><p>Link per-channel component detections into multi-channel tracks.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#nemo.track.classify_kinematic" title="nemo.track.classify_kinematic"><code class="xref py py-obj docutils literal notranslate"><span class="pre">classify_kinematic</span></code></a>(→ list[dict])</p></td>
+<td><p>Add kinematic classification fields to each track dict (in-place).</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#nemo.track.group_into_sources" title="nemo.track.group_into_sources"><code class="xref py py-obj docutils literal notranslate"><span class="pre">group_into_sources</span></code></a>(→ list[dict])</p></td>
+<td><p>Group related tracks into sources via union-find over split/merge edges.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#nemo.track.classify_sources" title="nemo.track.classify_sources"><code class="xref py py-obj docutils literal notranslate"><span class="pre">classify_sources</span></code></a>(→ tuple[list[dict], list[dict], dict, ...)</p></td>
+<td><p>Classify sources as real detections or false positives.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#nemo.track.run_flow_tracker" title="nemo.track.run_flow_tracker"><code class="xref py py-obj docutils literal notranslate"><span class="pre">run_flow_tracker</span></code></a>(...)</p></td>
+<td><p>Detect → flow → track → classify → group → classify sources.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#nemo.track.main" title="nemo.track.main"><code class="xref py py-obj docutils literal notranslate"><span class="pre">main</span></code></a>(→ None)</p></td>
+<td><p></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="module-contents">
+<h2>Module Contents<a class="headerlink" href="#module-contents" title="Link to this heading">#</a></h2>
+<dl class="py function">
+<dt class="sig sig-object py" id="nemo.track.masked_flow_tvl1">
+<span class="sig-prename descclassname"><span class="pre">nemo.track.</span></span><span class="sig-name descname"><span class="pre">masked_flow_tvl1</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">img_ref</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.4)"><span class="pre">numpy.ndarray</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">img_tgt</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.4)"><span class="pre">numpy.ndarray</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">mask</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.4)"><span class="pre">numpy.ndarray</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.4)"><span class="pre">numpy.ndarray</span></a></span></span><a class="reference internal" href="../../../_modules/nemo/track.html#masked_flow_tvl1"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nemo.track.masked_flow_tvl1" title="Link to this definition">#</a></dt>
+<dd><p>TV-L1 optical flow restricted to <em>mask</em> pixels.</p>
+<p>Both images are zeroed outside <em>mask</em> before the solver runs, so emission
+structure outside detected source footprints never influences the flow
+estimate inside them.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>img_ref</strong> – 2-D float32 channel images, shape (H, W).</p></li>
+<li><p><strong>img_tgt</strong> – 2-D float32 channel images, shape (H, W).</p></li>
+<li><p><strong>mask</strong> – Boolean (H, W) — True where flow should be estimated.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Shape (2, H, W) float32.  <code class="docutils literal notranslate"><span class="pre">flow[0]</span></code> = v (row displacement),
+<code class="docutils literal notranslate"><span class="pre">flow[1]</span></code> = u (col displacement).  Zero everywhere outside <em>mask</em>.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>np.ndarray</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="nemo.track.compute_flow_sequence">
+<span class="sig-prename descclassname"><span class="pre">nemo.track.</span></span><span class="sig-name descname"><span class="pre">compute_flow_sequence</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">detections</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><span class="pre">list</span></a><span class="p"><span class="pre">[</span></span><a class="reference internal" href="../detect/index.html#nemo.detect.ChannelDetection" title="nemo.detect.ChannelDetection"><span class="pre">nemo.detect.ChannelDetection</span></a><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">verbose</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><span class="pre">bool</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><span class="pre">list</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.14)"><span class="pre">tuple</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.4)"><span class="pre">numpy.ndarray</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.4)"><span class="pre">numpy.ndarray</span></a><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../../../_modules/nemo/track.html#compute_flow_sequence"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nemo.track.compute_flow_sequence" title="Link to this definition">#</a></dt>
+<dd><p>Compute masked TV-L1 flow for every consecutive detection pair.</p>
+<p>The joint mask is the <em>union</em> of the source footprints from both channels.
+Using the union (rather than the intersection) is critical for split
+detection: when a source splits into a new spatial location between
+channels, the two components may not overlap at all.  With an intersection
+mask the flow would be zero everywhere and the predicted centroid would
+not move — causing the split-off component to be mis-classified as a new
+independent source.  With the union mask the TV-L1 solver sees the
+source signal on both sides and produces flow vectors that point from
+the pre-split footprint toward the post-split footprint, allowing
+<a class="reference internal" href="#nemo.track.link_tracks" title="nemo.track.link_tracks"><code class="xref py py-func docutils literal notranslate"><span class="pre">link_tracks()</span></code></a> to attribute the new component to the correct parent.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>detections</strong> – Ordered list of <code class="xref py py-class docutils literal notranslate"><span class="pre">ChannelDetection</span></code> objects.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)">list</a> of (ch_ref, ch_tgt, flow, joint_mask) tuples.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="nemo.track.link_tracks">
+<span class="sig-prename descclassname"><span class="pre">nemo.track.</span></span><span class="sig-name descname"><span class="pre">link_tracks</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">detections</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><span class="pre">list</span></a><span class="p"><span class="pre">[</span></span><a class="reference internal" href="../detect/index.html#nemo.detect.ChannelDetection" title="nemo.detect.ChannelDetection"><span class="pre">nemo.detect.ChannelDetection</span></a><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">flow_seq</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><span class="pre">list</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.14)"><span class="pre">tuple</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.4)"><span class="pre">numpy.ndarray</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.4)"><span class="pre">numpy.ndarray</span></a><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">min_match_overlap</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">5</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_gap_channels</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">5</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">verbose</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><span class="pre">bool</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><span class="pre">list</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)"><span class="pre">dict</span></a><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../../../_modules/nemo/track.html#link_tracks"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nemo.track.link_tracks" title="Link to this definition">#</a></dt>
+<dd><p>Link per-channel component detections into multi-channel tracks.</p>
+<p>Uses advected masks and pixel-overlap matching — no Euclidean distance.</p>
+<section id="algorithm">
+<h3>Algorithm<a class="headerlink" href="#algorithm" title="Link to this heading">#</a></h3>
+<p>Each track maintains an <em>advected mask</em>: its most recently known wavelet
+footprint, advected channel-by-channel through the flow via Catmull-Rom
+cubic interpolation.  All matching uses pixel-overlap only.</p>
+<p>For each consecutive channel pair (ref → tgt):</p>
+<ol class="upperalpha simple">
+<li><p>Advect every active track’s footprint mask through the flow → adv_maps.</p></li>
+<li><p>Hungarian matching on negative-overlap cost matrix.  Pairs with overlap
+≥ min_match_overlap are matched; advected mask reset to the matched
+component footprint.</p></li>
+<li><p>Unmatched predictions: check for merge via overlap, then freeze advected
+mask and extrapolate centroid; deactivate if gap exceeds max_gap_channels.</p></li>
+<li><p>Unmatched detections: always start new independent tracks.  Split
+attribution is performed separately by <code class="xref py py-func docutils literal notranslate"><span class="pre">_reconcile_splits()</span></code> using
+the backward pass, where splits look like merges and are detected
+symmetrically.</p></li>
+</ol>
+<dl class="field-list simple">
+<dt class="field-odd">param detections<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Per-channel detection results in channel order.</p>
+</dd>
+<dt class="field-even">param flow_seq<span class="colon">:</span></dt>
+<dd class="field-even"><p>Output of <a class="reference internal" href="#nemo.track.compute_flow_sequence" title="nemo.track.compute_flow_sequence"><code class="xref py py-func docutils literal notranslate"><span class="pre">compute_flow_sequence()</span></code></a>.</p>
+</dd>
+<dt class="field-odd">param min_match_overlap<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Minimum pixel overlap (advected mask ∩ component footprint) to accept a
+continuation match.</p>
+</dd>
+<dt class="field-even">param max_gap_channels<span class="colon">:</span></dt>
+<dd class="field-even"><p>Maximum number of consecutive unmatched channels before a track is
+deactivated.</p>
+</dd>
+<dt class="field-odd">returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>One dict per track with keys: <code class="docutils literal notranslate"><span class="pre">id</span></code>, <code class="docutils literal notranslate"><span class="pre">trajectory</span></code>, <code class="docutils literal notranslate"><span class="pre">masks</span></code>,
+<code class="docutils literal notranslate"><span class="pre">split_at</span></code>, <code class="docutils literal notranslate"><span class="pre">split_from</span></code>, <code class="docutils literal notranslate"><span class="pre">merge_into</span></code>, <code class="docutils literal notranslate"><span class="pre">active</span></code>.</p>
+</dd>
+<dt class="field-even">rtype<span class="colon">:</span></dt>
+<dd class="field-even"><p>list[dict]</p>
+</dd>
+</dl>
+</section>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="nemo.track.classify_kinematic">
+<span class="sig-prename descclassname"><span class="pre">nemo.track.</span></span><span class="sig-name descname"><span class="pre">classify_kinematic</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">tracks</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><span class="pre">list</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)"><span class="pre">dict</span></a><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">min_displacement</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">3.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">verbose</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><span class="pre">bool</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><span class="pre">list</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)"><span class="pre">dict</span></a><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../../../_modules/nemo/track.html#classify_kinematic"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nemo.track.classify_kinematic" title="Link to this definition">#</a></dt>
+<dd><p>Add kinematic classification fields to each track dict (in-place).</p>
+<p>A track is <strong>kinematically active</strong> if:
+- Its cumulative centroid displacement across channels ≥ <em>min_displacement</em>, or
+- It was involved in a split event (either as parent or as split-off child).</p>
+<p>Adds keys <code class="docutils literal notranslate"><span class="pre">displacement</span></code> (float, px), <code class="docutils literal notranslate"><span class="pre">has_split</span></code> (bool),
+and <code class="docutils literal notranslate"><span class="pre">kinematic</span></code> (bool) to each track dict.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="nemo.track.group_into_sources">
+<span class="sig-prename descclassname"><span class="pre">nemo.track.</span></span><span class="sig-name descname"><span class="pre">group_into_sources</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">tracks</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><span class="pre">list</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)"><span class="pre">dict</span></a><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><span class="pre">list</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)"><span class="pre">dict</span></a><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../../../_modules/nemo/track.html#group_into_sources"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nemo.track.group_into_sources" title="Link to this definition">#</a></dt>
+<dd><p>Group related tracks into sources via union-find over split/merge edges.</p>
+<p>Two tracks belong to the same source if they are connected by any chain of
+<code class="docutils literal notranslate"><span class="pre">split_from</span></code> (child→parent) or <code class="docutils literal notranslate"><span class="pre">merge_into</span></code> (merging track → target)
+relationships.  The result is one source per connected component.</p>
+<p>Annotates each track dict in-place with a <code class="docutils literal notranslate"><span class="pre">source_id</span></code> key.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>tracks</strong> – Output of <a class="reference internal" href="#nemo.track.classify_kinematic" title="nemo.track.classify_kinematic"><code class="xref py py-func docutils literal notranslate"><span class="pre">classify_kinematic()</span></code></a> (or <a class="reference internal" href="#nemo.track.link_tracks" title="nemo.track.link_tracks"><code class="xref py py-func docutils literal notranslate"><span class="pre">link_tracks()</span></code></a>).</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>One dict per source, sorted by ascending <code class="docutils literal notranslate"><span class="pre">id</span></code>, with keys:
+<code class="docutils literal notranslate"><span class="pre">id</span></code>, <code class="docutils literal notranslate"><span class="pre">track_ids</span></code>, <code class="docutils literal notranslate"><span class="pre">channels</span></code>, <code class="docutils literal notranslate"><span class="pre">n_channels</span></code>,
+<code class="docutils literal notranslate"><span class="pre">split_events</span></code>, <code class="docutils literal notranslate"><span class="pre">merge_events</span></code>.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)">list</a>[<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)">dict</a>]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="nemo.track.classify_sources">
+<span class="sig-prename descclassname"><span class="pre">nemo.track.</span></span><span class="sig-name descname"><span class="pre">classify_sources</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sources</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><span class="pre">list</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)"><span class="pre">dict</span></a><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tracks</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><span class="pre">list</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)"><span class="pre">dict</span></a><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">detections</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><span class="pre">list</span></a><span class="p"><span class="pre">[</span></span><a class="reference internal" href="../detect/index.html#nemo.detect.ChannelDetection" title="nemo.detect.ChannelDetection"><span class="pre">nemo.detect.ChannelDetection</span></a><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">flow_seq</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><span class="pre">list</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.14)"><span class="pre">tuple</span></a><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">wav_scale_idx</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">3</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">wav_abrupt_thresh</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0.5</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">flow_iou_thresh</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0.25</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">short_det_max</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">8</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">verbose</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><span class="pre">bool</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">plot</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><span class="pre">bool</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">vel_array</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.4)"><span class="pre">numpy.ndarray</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">results_dir</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/pathlib.html#pathlib.Path" title="(in Python v3.14)"><span class="pre">pathlib.Path</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.14)"><span class="pre">tuple</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><span class="pre">list</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)"><span class="pre">dict</span></a><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><span class="pre">list</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)"><span class="pre">dict</span></a><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)"><span class="pre">dict</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)"><span class="pre">dict</span></a><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../../../_modules/nemo/track.html#classify_sources"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nemo.track.classify_sources" title="Link to this definition">#</a></dt>
+<dd><p>Classify sources as real detections or false positives.</p>
+<p>Uses two complementary metrics computed from wavelet coefficients and
+optical flow:</p>
+<ul class="simple">
+<li><p><strong>flow_iou</strong>: advect each source’s footprint through the flow field
+(backward warp) and measure IoU with the next channel’s footprint.
+Real sources follow the flow and score high; artefacts don’t move
+coherently and score low.</p></li>
+<li><p><strong>wav_abrupt</strong>: ratio of the edge wavelet flux (first or last channel
+of the detection) to the peak flux.  Step-function artefacts that
+appear or disappear abruptly score ≈ 1; real sources fade in/out
+and score lower.</p></li>
+</ul>
+<dl class="simple">
+<dt>A source is classified as a false detection if:</dt><dd><p>wav_abrupt &gt; wav_abrupt_thresh
+OR (flow_iou &lt; flow_iou_thresh AND n_detected_channels &lt; short_det_max)</p>
+</dd>
+</dl>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>sources</strong> – Direct outputs of <a class="reference internal" href="#nemo.track.run_flow_tracker" title="nemo.track.run_flow_tracker"><code class="xref py py-func docutils literal notranslate"><span class="pre">run_flow_tracker()</span></code></a>.</p></li>
+<li><p><strong>tracks</strong> – Direct outputs of <a class="reference internal" href="#nemo.track.run_flow_tracker" title="nemo.track.run_flow_tracker"><code class="xref py py-func docutils literal notranslate"><span class="pre">run_flow_tracker()</span></code></a>.</p></li>
+<li><p><strong>detections</strong> – Direct outputs of <a class="reference internal" href="#nemo.track.run_flow_tracker" title="nemo.track.run_flow_tracker"><code class="xref py py-func docutils literal notranslate"><span class="pre">run_flow_tracker()</span></code></a>.</p></li>
+<li><p><strong>flow_seq</strong> – Direct outputs of <a class="reference internal" href="#nemo.track.run_flow_tracker" title="nemo.track.run_flow_tracker"><code class="xref py py-func docutils literal notranslate"><span class="pre">run_flow_tracker()</span></code></a>.</p></li>
+<li><p><strong>wav_scale_idx</strong> – 0-based wavelet scale index to use for spectral profile extraction.
+Should match <code class="docutils literal notranslate"><span class="pre">use_scale</span> <span class="pre">-</span> <span class="pre">1</span></code> used in <a class="reference internal" href="#nemo.track.run_flow_tracker" title="nemo.track.run_flow_tracker"><code class="xref py py-func docutils literal notranslate"><span class="pre">run_flow_tracker()</span></code></a>.</p></li>
+<li><p><strong>wav_abrupt_thresh</strong> – Classification thresholds (see above).</p></li>
+<li><p><strong>flow_iou_thresh</strong> – Classification thresholds (see above).</p></li>
+<li><p><strong>short_det_max</strong> – Classification thresholds (see above).</p></li>
+<li><p><strong>verbose</strong> – Print a formatted table of sources and false detections.</p></li>
+<li><p><strong>plot</strong> – Render and save the two-panel separation figure
+(IoU scatter + normalised wavelet profiles).  Requires
+<code class="docutils literal notranslate"><span class="pre">vel_array</span></code> and <code class="docutils literal notranslate"><span class="pre">results_dir</span></code>.</p></li>
+<li><p><strong>vel_array</strong> – 1-D velocity array aligned with cube channels (km/s).  Required
+when <code class="docutils literal notranslate"><span class="pre">plot=True</span></code>.</p></li>
+<li><p><strong>results_dir</strong> – Directory for saved figures.  Created if absent.  Required when
+<code class="docutils literal notranslate"><span class="pre">plot=True</span></code>.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><ul class="simple">
+<li><p><strong>good_sources</strong> (<em>list[dict]</em>)</p></li>
+<li><p><strong>false_dets</strong> (<em>list[dict]</em>)</p></li>
+<li><p><strong>src_data</strong> (<em>dict  {source_id → metric dict}</em>)</p></li>
+<li><p><strong>src_colors</strong> (<em>dict  {source_id → rgba tuple}  (tab10, cycled mod 10)</em>)</p></li>
+</ul>
+</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="nemo.track.run_flow_tracker">
+<span class="sig-prename descclassname"><span class="pre">nemo.track.</span></span><span class="sig-name descname"><span class="pre">run_flow_tracker</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">cube</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.4)"><span class="pre">numpy.ndarray</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">channel_list</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><span class="pre">list</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scales</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">6</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">k_sigma</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">5.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">use_scale</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">5</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">min_area</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">20</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">thresh</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">use_mean_map_sigma</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><span class="pre">bool</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">min_match_overlap</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">5</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_gap_channels</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">5</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">min_displacement</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">3.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">wav_scale_idx</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">3</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">wav_abrupt_thresh</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0.5</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">flow_iou_thresh</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0.25</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">short_det_max</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">8</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">vel_array</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.4)"><span class="pre">numpy.ndarray</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">results_dir</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/pathlib.html#pathlib.Path" title="(in Python v3.14)"><span class="pre">pathlib.Path</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">plot</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><span class="pre">bool</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">verbose</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><span class="pre">bool</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.14)"><span class="pre">tuple</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><span class="pre">list</span></a><span class="p"><span class="pre">[</span></span><a class="reference internal" href="../detect/index.html#nemo.detect.ChannelDetection" title="nemo.detect.ChannelDetection"><span class="pre">nemo.detect.ChannelDetection</span></a><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><span class="pre">list</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.14)"><span class="pre">tuple</span></a><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><span class="pre">list</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)"><span class="pre">dict</span></a><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><span class="pre">list</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)"><span class="pre">dict</span></a><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><span class="pre">list</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)"><span class="pre">dict</span></a><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><span class="pre">list</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)"><span class="pre">dict</span></a><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)"><span class="pre">dict</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)"><span class="pre">dict</span></a><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../../../_modules/nemo/track.html#run_flow_tracker"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nemo.track.run_flow_tracker" title="Link to this definition">#</a></dt>
+<dd><p>Detect → flow → track → classify → group → classify sources.</p>
+<p>Runs all five pipeline stages and returns their combined outputs.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>use_mean_map_sigma</strong> – Passed to <code class="xref py py-func docutils literal notranslate"><span class="pre">detect_cube_per_channel()</span></code>.
+When <code class="docutils literal notranslate"><span class="pre">True</span></code> (default) the wavelet threshold is anchored to the
+per-scale noise from the mean map, preventing spurious detections
+on near-empty channels.</p></li>
+<li><p><strong>wav_scale_idx</strong> – 0-based wavelet scale index for source classification (should equal
+<code class="docutils literal notranslate"><span class="pre">use_scale</span> <span class="pre">-</span> <span class="pre">1</span></code>).</p></li>
+<li><p><strong>wav_abrupt_thresh</strong> – Thresholds for <a class="reference internal" href="#nemo.track.classify_sources" title="nemo.track.classify_sources"><code class="xref py py-func docutils literal notranslate"><span class="pre">classify_sources()</span></code></a>.</p></li>
+<li><p><strong>flow_iou_thresh</strong> – Thresholds for <a class="reference internal" href="#nemo.track.classify_sources" title="nemo.track.classify_sources"><code class="xref py py-func docutils literal notranslate"><span class="pre">classify_sources()</span></code></a>.</p></li>
+<li><p><strong>short_det_max</strong> – Thresholds for <a class="reference internal" href="#nemo.track.classify_sources" title="nemo.track.classify_sources"><code class="xref py py-func docutils literal notranslate"><span class="pre">classify_sources()</span></code></a>.</p></li>
+<li><p><strong>vel_array</strong> – 1-D velocity array (km/s, length = cube.shape[0]).  Passed to
+<a class="reference internal" href="#nemo.track.classify_sources" title="nemo.track.classify_sources"><code class="xref py py-func docutils literal notranslate"><span class="pre">classify_sources()</span></code></a> for axis labelling when <code class="docutils literal notranslate"><span class="pre">plot=True</span></code>.</p></li>
+<li><p><strong>results_dir</strong> – Output directory for saved figures.  Passed to
+<a class="reference internal" href="#nemo.track.classify_sources" title="nemo.track.classify_sources"><code class="xref py py-func docutils literal notranslate"><span class="pre">classify_sources()</span></code></a> when <code class="docutils literal notranslate"><span class="pre">plot=True</span></code>.</p></li>
+<li><p><strong>plot</strong> – Render and save the false-detection separation figure.</p></li>
+<li><p><strong>verbose</strong> – Print per-step progress and summary tables.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><ul class="simple">
+<li><p><strong>detections</strong> (<em>list[ChannelDetection]</em>)</p></li>
+<li><p><strong>flow_seq</strong> (<em>list of (ch_ref, ch_tgt, flow, joint_mask)</em>)</p></li>
+<li><p><strong>tracks</strong> (<em>list of classified track dicts (each annotated with source_id)</em>)</p></li>
+<li><p><strong>sources</strong> (<em>list of all source dicts</em>)</p></li>
+<li><p><strong>good_sources</strong> (<em>list of source dicts that passed the false-detection filter</em>)</p></li>
+<li><p><strong>false_dets</strong> (<em>list of source dicts flagged as false detections</em>)</p></li>
+<li><p><strong>src_data</strong> (<em>dict {source_id → metric dict (flow_iou, wav_abrupt, …)}</em>)</p></li>
+<li><p><strong>src_colors</strong> (<em>dict {source_id → rgba tuple}  (tab10, cycled mod 10)</em>)</p></li>
+</ul>
+</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="nemo.track.TrackingResult">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">nemo.track.</span></span><span class="sig-name descname"><span class="pre">TrackingResult</span></span><a class="reference internal" href="../../../_modules/nemo/track.html#TrackingResult"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nemo.track.TrackingResult" title="Link to this definition">#</a></dt>
+<dd><p>Output of <a class="reference internal" href="#nemo.track.FlowTracker.run" title="nemo.track.FlowTracker.run"><code class="xref py py-meth docutils literal notranslate"><span class="pre">FlowTracker.run()</span></code></a>.</p>
+<p>Wraps the full pipeline output — detections, flow, tracks, sources,
+false-detection list, and per-source metrics — in a single object.</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="nemo.track.TrackingResult.detections">
+<span class="sig-name descname"><span class="pre">detections</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><span class="pre">list</span></a></span><a class="headerlink" href="#nemo.track.TrackingResult.detections" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="nemo.track.TrackingResult.flow_seq">
+<span class="sig-name descname"><span class="pre">flow_seq</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><span class="pre">list</span></a></span><a class="headerlink" href="#nemo.track.TrackingResult.flow_seq" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="nemo.track.TrackingResult.tracks">
+<span class="sig-name descname"><span class="pre">tracks</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><span class="pre">list</span></a></span><a class="headerlink" href="#nemo.track.TrackingResult.tracks" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="nemo.track.TrackingResult.sources">
+<span class="sig-name descname"><span class="pre">sources</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><span class="pre">list</span></a></span><a class="headerlink" href="#nemo.track.TrackingResult.sources" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="nemo.track.TrackingResult.false_detections">
+<span class="sig-name descname"><span class="pre">false_detections</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><span class="pre">list</span></a></span><a class="headerlink" href="#nemo.track.TrackingResult.false_detections" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="nemo.track.TrackingResult.src_data">
+<span class="sig-name descname"><span class="pre">src_data</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)"><span class="pre">dict</span></a></span><a class="headerlink" href="#nemo.track.TrackingResult.src_data" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="nemo.track.TrackingResult.src_colors">
+<span class="sig-name descname"><span class="pre">src_colors</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)"><span class="pre">dict</span></a></span><a class="headerlink" href="#nemo.track.TrackingResult.src_colors" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="nemo.track.FlowTracker">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">nemo.track.</span></span><span class="sig-name descname"><span class="pre">FlowTracker</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">detector</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">min_match_overlap</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">5</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_gap_channels</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">5</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">min_displacement</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">3.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">wav_scale_idx</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">3</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">wav_abrupt_thresh</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0.5</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">flow_iou_thresh</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0.25</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">short_det_max</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">8</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/nemo/track.html#FlowTracker"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nemo.track.FlowTracker" title="Link to this definition">#</a></dt>
+<dd><p>Full STORM pipeline: wavelet detection → optical flow → track linking
+→ kinematic classification → source grouping → false-detection removal.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>detector</strong> (<a class="reference internal" href="../detect/index.html#nemo.detect.WaveletDetector" title="nemo.detect.WaveletDetector"><em>WaveletDetector</em></a><em> or </em><em>None</em>) – Wavelet detector instance.  <code class="docutils literal notranslate"><span class="pre">None</span></code> uses default settings.</p></li>
+<li><p><strong>min_match_overlap</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a>) – Minimum pixel overlap to accept an advected→component continuation match.</p></li>
+<li><p><strong>max_gap_channels</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a>) – Maximum consecutive unmatched channels before a track is deactivated.</p></li>
+<li><p><strong>min_displacement</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Minimum cumulative centroid travel (px) to call a track kinematic.</p></li>
+<li><p><strong>wav_scale_idx</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a>) – 0-based wavelet scale index for source classification metrics.</p></li>
+<li><p><strong>wav_abrupt_thresh</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Abruptness threshold above which a source is flagged as a false
+detection.</p></li>
+<li><p><strong>flow_iou_thresh</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Flow-IoU threshold below which a short source is flagged as a false
+detection.</p></li>
+<li><p><strong>short_det_max</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a>) – Maximum channel span for the flow-IoU false-detection criterion.</p></li>
+</ul>
+</dd>
+</dl>
+<p class="rubric">Examples</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span><span class="w"> </span><span class="nn">storm.detect</span><span class="w"> </span><span class="kn">import</span> <span class="n">WaveletDetector</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span><span class="w"> </span><span class="nn">storm.track</span><span class="w"> </span><span class="kn">import</span> <span class="n">FlowTracker</span>
+<span class="gp">&gt;&gt;&gt;</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">detector</span> <span class="o">=</span> <span class="n">WaveletDetector</span><span class="p">(</span><span class="n">scales</span><span class="o">=</span><span class="mi">6</span><span class="p">,</span> <span class="n">k_sigma</span><span class="o">=</span><span class="mf">5.0</span><span class="p">,</span> <span class="n">use_scale</span><span class="o">=</span><span class="mi">5</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">tracker</span>  <span class="o">=</span> <span class="n">FlowTracker</span><span class="p">(</span><span class="n">detector</span><span class="p">,</span> <span class="n">min_match_overlap</span><span class="o">=</span><span class="mi">5</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">result</span>   <span class="o">=</span> <span class="n">tracker</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">cube</span><span class="p">,</span> <span class="n">channel_list</span><span class="p">,</span> <span class="n">verbose</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt;</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">result</span><span class="o">.</span><span class="n">sources</span>          <span class="c1"># real sources</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">result</span><span class="o">.</span><span class="n">false_detections</span> <span class="c1"># flagged false positives</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">result</span><span class="o">.</span><span class="n">tracks</span>           <span class="c1"># all individual tracks</span>
+</pre></div>
+</div>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="nemo.track.FlowTracker.detector">
+<span class="sig-name descname"><span class="pre">detector</span></span><a class="headerlink" href="#nemo.track.FlowTracker.detector" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="nemo.track.FlowTracker.min_match_overlap">
+<span class="sig-name descname"><span class="pre">min_match_overlap</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">5</span></span><a class="headerlink" href="#nemo.track.FlowTracker.min_match_overlap" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="nemo.track.FlowTracker.max_gap_channels">
+<span class="sig-name descname"><span class="pre">max_gap_channels</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">5</span></span><a class="headerlink" href="#nemo.track.FlowTracker.max_gap_channels" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="nemo.track.FlowTracker.min_displacement">
+<span class="sig-name descname"><span class="pre">min_displacement</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">3.0</span></span><a class="headerlink" href="#nemo.track.FlowTracker.min_displacement" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="nemo.track.FlowTracker.wav_scale_idx">
+<span class="sig-name descname"><span class="pre">wav_scale_idx</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">3</span></span><a class="headerlink" href="#nemo.track.FlowTracker.wav_scale_idx" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="nemo.track.FlowTracker.wav_abrupt_thresh">
+<span class="sig-name descname"><span class="pre">wav_abrupt_thresh</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">0.5</span></span><a class="headerlink" href="#nemo.track.FlowTracker.wav_abrupt_thresh" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="nemo.track.FlowTracker.flow_iou_thresh">
+<span class="sig-name descname"><span class="pre">flow_iou_thresh</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">0.25</span></span><a class="headerlink" href="#nemo.track.FlowTracker.flow_iou_thresh" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="nemo.track.FlowTracker.short_det_max">
+<span class="sig-name descname"><span class="pre">short_det_max</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">8</span></span><a class="headerlink" href="#nemo.track.FlowTracker.short_det_max" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="nemo.track.FlowTracker.run">
+<span class="sig-name descname"><span class="pre">run</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">cube</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.4)"><span class="pre">numpy.ndarray</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">channel_list</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><span class="pre">list</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">vel_array</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.4)"><span class="pre">numpy.ndarray</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">results_dir</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">plot</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><span class="pre">bool</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">verbose</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><span class="pre">bool</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="#nemo.track.TrackingResult" title="nemo.track.TrackingResult"><span class="pre">TrackingResult</span></a></span></span><a class="reference internal" href="../../../_modules/nemo/track.html#FlowTracker.run"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nemo.track.FlowTracker.run" title="Link to this definition">#</a></dt>
+<dd><p>Detect sources in <em>cube</em> and run the full tracking pipeline.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>cube</strong> (<em>(</em><em>n_ch</em><em>, </em><em>H</em><em>, </em><em>W</em><em>) </em><em>float32</em>)</p></li>
+<li><p><strong>channel_list</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a><em> of </em><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a><em> or </em><em>None</em>) – Channels to process.  <code class="docutils literal notranslate"><span class="pre">None</span></code> processes all channels.</p></li>
+<li><p><strong>vel_array</strong> (<em>1-D array</em><em> or </em><em>None</em>) – Velocity axis (km/s) for plot axis labelling.</p></li>
+<li><p><strong>results_dir</strong> (<em>path-like</em><em> or </em><em>None</em>) – Directory for saved figures when <code class="docutils literal notranslate"><span class="pre">plot=True</span></code>.</p></li>
+<li><p><strong>plot</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>) – Render and save the false-detection separation figure.</p></li>
+<li><p><strong>verbose</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>) – Print per-step progress and summary tables.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference internal" href="#nemo.track.TrackingResult" title="nemo.track.TrackingResult">TrackingResult</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="nemo.track.FlowTracker.run_from_detections">
+<span class="sig-name descname"><span class="pre">run_from_detections</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">detections</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><span class="pre">list</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">vel_array</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.4)"><span class="pre">numpy.ndarray</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">results_dir</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">plot</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><span class="pre">bool</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">verbose</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><span class="pre">bool</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="#nemo.track.TrackingResult" title="nemo.track.TrackingResult"><span class="pre">TrackingResult</span></a></span></span><a class="reference internal" href="../../../_modules/nemo/track.html#FlowTracker.run_from_detections"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nemo.track.FlowTracker.run_from_detections" title="Link to this definition">#</a></dt>
+<dd><p>Run the tracking pipeline on pre-computed <em>detections</em>.</p>
+<p>Useful when you want to inspect or filter detections before tracking.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>detections</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a><em>[</em><a class="reference internal" href="../detect/index.html#nemo.detect.ChannelDetection" title="nemo.detect.ChannelDetection"><em>ChannelDetection</em></a><em>]</em>) – Output of <code class="xref py py-meth docutils literal notranslate"><span class="pre">WaveletDetector.detect()</span></code>.</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="nemo.track.main">
+<span class="sig-prename descclassname"><span class="pre">nemo.track.</span></span><span class="sig-name descname"><span class="pre">main</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span></span><a class="reference internal" href="../../../_modules/nemo/track.html#main"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nemo.track.main" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+</section>
+</section>
+
+
+                </article>
+              
+
+              
+              
+              
+              
+                <footer class="prev-next-footer d-print-none">
+                  
+<div class="prev-next-area">
+    <a class="left-prev"
+       href="../gui/widgets/index.html"
+       title="previous page">
+      <i class="fa-solid fa-angle-left"></i>
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">previous</p>
+        <p class="prev-next-title">nemo.gui.widgets</p>
+      </div>
+    </a>
+    <a class="right-next"
+       href="../utils/index.html"
+       title="next page">
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">next</p>
+        <p class="prev-next-title">nemo.utils</p>
+      </div>
+      <i class="fa-solid fa-angle-right"></i>
+    </a>
+</div>
+                </footer>
+              
+            </div>
+            
+            
+              
+                <dialog id="pst-secondary-sidebar-modal"></dialog>
+                <div id="pst-secondary-sidebar" class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+
+
+  <div class="sidebar-secondary-item"><div
+    id="pst-page-navigation-heading-2"
+    class="page-toc tocsection onthispage">
+    <i class="fa-solid fa-list"></i> Contents
+  </div>
+  <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
+    <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#output">Output</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#classes">Classes</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#functions">Functions</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#module-contents">Module Contents</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#nemo.track.masked_flow_tvl1"><code class="docutils literal notranslate"><span class="pre">masked_flow_tvl1()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#nemo.track.compute_flow_sequence"><code class="docutils literal notranslate"><span class="pre">compute_flow_sequence()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#nemo.track.link_tracks"><code class="docutils literal notranslate"><span class="pre">link_tracks()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#nemo.track.classify_kinematic"><code class="docutils literal notranslate"><span class="pre">classify_kinematic()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#nemo.track.group_into_sources"><code class="docutils literal notranslate"><span class="pre">group_into_sources()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#nemo.track.classify_sources"><code class="docutils literal notranslate"><span class="pre">classify_sources()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#nemo.track.run_flow_tracker"><code class="docutils literal notranslate"><span class="pre">run_flow_tracker()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#nemo.track.TrackingResult"><code class="docutils literal notranslate"><span class="pre">TrackingResult</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#nemo.track.TrackingResult.detections"><code class="docutils literal notranslate"><span class="pre">TrackingResult.detections</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#nemo.track.TrackingResult.flow_seq"><code class="docutils literal notranslate"><span class="pre">TrackingResult.flow_seq</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#nemo.track.TrackingResult.tracks"><code class="docutils literal notranslate"><span class="pre">TrackingResult.tracks</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#nemo.track.TrackingResult.sources"><code class="docutils literal notranslate"><span class="pre">TrackingResult.sources</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#nemo.track.TrackingResult.false_detections"><code class="docutils literal notranslate"><span class="pre">TrackingResult.false_detections</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#nemo.track.TrackingResult.src_data"><code class="docutils literal notranslate"><span class="pre">TrackingResult.src_data</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#nemo.track.TrackingResult.src_colors"><code class="docutils literal notranslate"><span class="pre">TrackingResult.src_colors</span></code></a></li>
+</ul>
+</li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#nemo.track.FlowTracker"><code class="docutils literal notranslate"><span class="pre">FlowTracker</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#nemo.track.FlowTracker.detector"><code class="docutils literal notranslate"><span class="pre">FlowTracker.detector</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#nemo.track.FlowTracker.min_match_overlap"><code class="docutils literal notranslate"><span class="pre">FlowTracker.min_match_overlap</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#nemo.track.FlowTracker.max_gap_channels"><code class="docutils literal notranslate"><span class="pre">FlowTracker.max_gap_channels</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#nemo.track.FlowTracker.min_displacement"><code class="docutils literal notranslate"><span class="pre">FlowTracker.min_displacement</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#nemo.track.FlowTracker.wav_scale_idx"><code class="docutils literal notranslate"><span class="pre">FlowTracker.wav_scale_idx</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#nemo.track.FlowTracker.wav_abrupt_thresh"><code class="docutils literal notranslate"><span class="pre">FlowTracker.wav_abrupt_thresh</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#nemo.track.FlowTracker.flow_iou_thresh"><code class="docutils literal notranslate"><span class="pre">FlowTracker.flow_iou_thresh</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#nemo.track.FlowTracker.short_det_max"><code class="docutils literal notranslate"><span class="pre">FlowTracker.short_det_max</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#nemo.track.FlowTracker.run"><code class="docutils literal notranslate"><span class="pre">FlowTracker.run()</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#nemo.track.FlowTracker.run_from_detections"><code class="docutils literal notranslate"><span class="pre">FlowTracker.run_from_detections()</span></code></a></li>
+</ul>
+</li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#nemo.track.main"><code class="docutils literal notranslate"><span class="pre">main()</span></code></a></li>
+</ul>
+</li>
+</ul>
+  </nav></div>
+
+</div></div>
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            
+<div class="bd-footer-content__inner container">
+  
+  <div class="footer-item">
+    
+<p class="component-author">
+By Arnab Lahiry
+</p>
+
+  </div>
+  
+  <div class="footer-item">
+    
+
+  <p class="copyright">
+    
+      © Copyright 2025, Arnab Lahiry.
+      <br/>
+    
+  </p>
+
+  </div>
+  
+  <div class="footer-item">
+    
+  </div>
+  
+  <div class="footer-item">
+    
+  </div>
+  
+</div>
+          </footer>
+        
+
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script defer src="../../../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf"></script>
+<script defer src="../../../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf"></script>
+
+  <footer class="bd-footer">
+  </footer>
+  </body>
+</html>
