@@ -27,17 +27,33 @@ kinematic classification, and a dual-metric false-detection filter.
 
 .. grid:: 2
 
-   .. grid-item-card:: API Reference
-      :link: autoapi/index
+   .. grid-item-card:: Graphical Interface
+      :link: gui
       :link-type: doc
 
-      Auto-generated reference for all public classes and functions.
+      Load cubes, tune parameters, and run the full pipeline without writing
+      any code.  Covers the four-card workspace, all viewer windows, and
+      analysis tools.
 
    .. grid-item-card:: Results: W2246-0526
       :link: results
       :link-type: doc
 
       Application to ALMA [C II] observations of a hyper-luminous quasar at *z* = 4.6.
+
+.. grid:: 2
+
+   .. grid-item-card:: API Reference
+      :link: autoapi/index
+      :link-type: doc
+
+      Auto-generated reference for all public classes and functions.
+
+   .. grid-item-card:: CLI Reference
+      :link: cli
+      :link-type: doc
+
+      Command-line tools for detection, tracking, and denoising.
 
 .. toctree::
    :maxdepth: 2
@@ -46,6 +62,7 @@ kinematic classification, and a dual-metric false-detection filter.
    installation
    quickstart
    methodology
+   gui
    results
    cli
    autoapi/index

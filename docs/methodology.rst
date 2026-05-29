@@ -96,22 +96,41 @@ advected weight map is:
    \delta\!\bigl(y' - \lfloor y + v_r(y,x)\rceil\bigr)\,
    \delta\!\bigl(x' - \lfloor x + v_c(y,x)\rceil\bigr)
 
-Matching proceeds in four ordered steps per channel transition:
+Track linking runs **twice** over the cube — forward (ch 0 → N) then
+backward (ch N → 0) — and uses the same three-step matching algorithm
+per channel transition in each pass.
+
+Forward pass — steps per transition
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 **A. Hungarian continuation** — negative pixel-overlap cost matrix
 :math:`\mathcal{C}_{ij}` solved optimally; pairs above ``min_match_overlap``
-are accepted as continuations.
+are accepted as continuations and the advected mask is reset to the matched
+component footprint.
 
-**B. Centroid-distance fallback** — flow-extrapolated centroid matched to
-unmatched components within ``max_gap_dist`` pixels (gap bridging).
+**B. Merge detection** — unmatched tracks whose advected mask overlaps a
+component already claimed by another track record a ``merge_into`` event
+and are deactivated.
 
-**C. Merge detection** — tracks whose advected mask overlaps a component
-already claimed by another track are classified as merges and deactivated.
+**C. Gap bridging and new tracks** — remaining unmatched tracks have their
+advected mask frozen and gap age incremented; tracks exceeding
+``max_gap_channels`` are deactivated.  Unclaimed components seed new
+independent tracks — no split attribution occurs in the forward pass.
 
-**D. Split attribution** — unmatched components with advected-mask overlap
-≥ ``min_split_overlap`` are attributed as splits of the best-matching parent.
+Backward pass and split reconciliation
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Splits and merges are connected by union-find to form **sources** —
+The same A–B–C algorithm is run in reverse on the negated flow field.
+A **split** in the forward direction (one footprint fragmenting into two)
+appears as a **merge** in the backward direction, so the backward pass
+detects it symmetrically without any separate split logic.
+
+After both passes, :func:`~nemo.track._reconcile_splits` matches backward
+tracks to forward tracks by trajectory voting (centroids within 5 px at
+shared channels) and transfers each backward ``merge_into`` event as a
+``split_from`` / ``split_at`` annotation on the corresponding forward tracks.
+
+Splits and merges are then connected by union-find to form **sources** —
 physical objects that may fragment and rejoin across channels.
 
 Stage 4 — Kinematic Classification

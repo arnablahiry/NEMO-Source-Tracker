@@ -27,9 +27,10 @@ NEMO is a Python pipeline for detecting and tracking compact emission sources ac
 4. [Results: W2246-0526](#results-w2246-0526)
 5. [Installation](#installation)
 6. [Quick Start](#quick-start)
-7. [API Reference](#api-reference)
-8. [CLI Reference](#cli-reference)
-9. [Dependencies](#dependencies)
+7. [Graphical Interface](#graphical-interface)
+8. [API Reference](#api-reference)
+9. [CLI Reference](#cli-reference)
+10. [Dependencies](#dependencies)
 
 ---
 
@@ -98,7 +99,7 @@ The B₃-spline kernel $h = [1/16,\, 1/4,\, 3/8,\, 1/4,\, 1/16]$ is applied in t
 
 The noise level at each detail scale is estimated from the **Median Absolute Deviation (MAD)**:
 
-$$\hat{\sigma}_j = 1.4826 \times \operatorname{median}\bigl(|w_j - \operatorname{median}(w_j)|\bigr)$$
+$$\hat{\sigma}_j = 1.4826 \times \mathrm{median}\bigl(|w_j - \mathrm{median}(w_j)|\bigr)$$
 
 The factor 1.4826 makes $\hat{\sigma}_j$ a consistent estimator of the standard deviation under Gaussian noise. To prevent collapse of the per-channel MAD estimate on nearly empty channels (where the denoised residual is near-deterministic and $\hat{\sigma}_j \to 0$), the noise reference is anchored to the **mean-map decomposition**:
 
@@ -133,7 +134,7 @@ $$\tilde{I}_c = I_c \cdot \mathbb{1}_{\Omega}, \qquad \tilde{I}_{c+1} = I_{c+1} 
 
 The TV-L1 optical flow problem then minimises:
 
-$$\mathbf{v}^* = \underset{\mathbf{v}}{\arg\min} \left\| \nabla \tilde{I}_c + (\mathbf{v} \cdot \nabla)\tilde{I}_c \right\|_1 + \lambda \|\nabla \mathbf{v}\|_1$$
+$$\mathbf{v}^* = \mathop{\arg\min}_{\mathbf{v}} \left\| \nabla \tilde{I}_c + (\mathbf{v} \cdot \nabla)\tilde{I}_c \right\|_1 + \lambda \|\nabla \mathbf{v}\|_1$$
 
 The union mask (rather than the intersection) is critical for split detection: when a source splits into a new spatial location between channels, the two components may not overlap. An intersection mask would produce $\mathbf{v} = 0$ everywhere, misclassifying the split-off component as a new independent source.
 
@@ -157,11 +158,13 @@ The track centroid is extrapolated by the same interpolation:
 
 $$(\hat{r}_{t+1}, \hat{c}_{t+1}) = (r_t + v_r(r_t, c_t),\; c_t + v_c(r_t, c_t))$$
 
-#### Four-Step Matching Protocol
+#### Two-Pass Matching Protocol
 
-For each channel transition $(c_{\rm ref} \to c_{\rm tgt})$, active tracks are matched to the new set of detected components in four ordered passes. Once a track or component is claimed in an earlier pass it cannot be reassigned in a later one.
+Track linking runs **twice** over the cube — once forward (channel 0 → N) and once backward (channel N → 0). Each pass uses the same three-step matching algorithm per channel transition. Splits are not detected directly in the forward pass; instead they are detected as **merges in the backward pass** and then reconciled.
 
 ---
+
+**Forward pass — steps per channel transition $(c_{\rm ref} \to c_{\rm tgt})$**
 
 **Step A — Continuation matching (Hungarian algorithm)**
 
@@ -169,25 +172,25 @@ The cost matrix $\mathcal{C} \in \mathbb{R}^{N_{\rm tracks} \times N_{\rm blobs}
 
 $$\mathcal{C}_{ij} = -\sum_{y,x} \mathcal{A}[M_i^{\rm adv}, \mathbf{v}](y,x) \cdot M_j^{(c_{\rm tgt})}(y,x)$$
 
-The globally optimal one-to-one assignment $(\mathbf{r}^*, \mathbf{c}^*) = \arg\min \sum_k \mathcal{C}_{r_k c_k}$ is solved with the Hungarian algorithm in $\mathcal{O}(N^3)$. A pair $(i, j)$ is accepted as a **continuation** only if $-\mathcal{C}_{ij} \geq \varepsilon_{\rm match}$ (default 5 px); the advected mask of track $i$ is reset to component $j$'s footprint.
+The globally optimal one-to-one assignment is solved with the Hungarian algorithm in $\mathcal{O}(N^3)$. A pair $(i, j)$ is accepted as a **continuation** only if $-\mathcal{C}_{ij} \geq \varepsilon_{\rm match}$ (default 5 px); the advected mask of track $i$ is reset to component $j$'s footprint.
+
+**Step B — Merge detection**
+
+For tracks not matched in Step A, the advected mask is compared against every component already claimed by another track. If the overlap $\geq \varepsilon_{\rm match}$, the unmatched track is classified as **merging**: it records the channel and target track in its `merge_into` list and is deactivated.
+
+**Step C — Gap bridging and new tracks**
+
+Tracks still unmatched after Step B have their advected mask frozen in place and their gap age incremented. If gap age exceeds `max_gap_channels` the track is deactivated. Any component not claimed by any track in Steps A–B seeds a new independent track — no split attribution is performed here.
 
 ---
 
-**Step B — Gap-bridging fallback (centroid distance)**
+**Backward pass — split detection via symmetric merge**
 
-Some tracks lose their footprint overlap temporarily — for example when a source passes through a channel with very low flux and no wavelet component is detected. For tracks not matched in Step A, the centroid is extrapolated one step via the flow field and compared to the positions of still-unmatched components. If the extrapolated centroid falls within `max_gap_dist` pixels (default 15 px) of a component centroid, the pair is accepted as a continuation. Crucially, no split edge is recorded: this is gap bridging, not splitting. A track can bridge at most `max_gap_channels` consecutive unmatched channels before it is deactivated.
+The same A–B–C algorithm is run on the channel sequence in reverse, with the flow field negated so that advection points backward in velocity. A **split** in the forward direction (one parent footprint fragmenting into two children) appears as a **merge** in the backward direction (two backward tracks converging onto one component). The backward pass therefore records these events as ordinary `merge_into` annotations.
 
----
+**Split reconciliation**
 
-**Step C — Merge detection**
-
-A track is classified as **merging** if, after Steps A and B, its advected mask overlaps a component that has already been claimed by a different track (overlap $\geq \varepsilon_{\rm match}$). Physically this occurs when two previously distinct emission components converge in velocity space and their wavelet footprints coalesce into one component. The merging track records the channel and the identity of the target track in its `merge_into` list, then is deactivated — its emission is now subsumed into the surviving track's footprint.
-
----
-
-**Step D — Split attribution**
-
-Any blob not claimed by Steps A–C is a new spatial detection that appeared without a direct precursor. NEMO asks: *did the flow field carry any existing source's footprint toward this component?* For each active track, the advected mask overlap with the unmatched component is evaluated. If the best overlap exceeds $\varepsilon_{\rm split}$ (default 3 px), the component is attributed as a **split** of that parent track: a new child track is created starting at this channel, and the parent records the split channel in its `split_at` list. If no track's advected mask reaches the component at all, it is a genuinely new independent source and seeds a fresh track with no parent.
+After both passes complete, `_reconcile_splits` matches each backward track to its forward counterpart by trajectory voting: for every shared channel, the forward track whose centroid is within 5 px of the backward track's centroid gets a vote; the forward track with the most votes wins. Each `merge_into` event in the backward pass is then transferred as a `split_from` / `split_at` annotation on the corresponding forward tracks.
 
 #### What a Track Is vs. What a Source Is
 
@@ -320,8 +323,7 @@ detector = WaveletDetector(
 tracker = FlowTracker(
     detector=detector,
     min_match_overlap=5,   # min advected∩component overlap to accept a continuation
-    min_split_overlap=3,   # min advected∩component overlap to attribute a split
-    max_gap_dist=15.0,     # max centroid distance (px) for gap bridging
+    max_gap_channels=5,    # max unmatched channels before a track is deactivated
     min_displacement=3.0,  # min cumulative travel (px) to call a track kinematic
     wav_abrupt_thresh=0.5, # abruptness threshold for false-detection filter
     flow_iou_thresh=0.25,  # flow-IoU threshold for false-detection filter
@@ -356,6 +358,46 @@ print(src["split_events"])  # channels where the source footprint split
 
 ---
 
+## Graphical Interface
+
+Launch the GUI with:
+
+```bash
+nemo-gui            # via the installed entry-point
+python -m nemo.gui  # directly from the source tree
+```
+
+The GUI is a four-card workspace that mirrors the pipeline stages. Each card unlocks after the previous stage completes.
+
+| Card | Purpose |
+|---|---|
+| **Moment 0** | Load a cube (FITS / HDF5 / NumPy), preview the integrated intensity map, adjust cube scaling. |
+| **Wavelet Detections** | Open the Scale Viewer to pick your detail band, configure detection parameters, and run the full pipeline with a single click. |
+| **Flow Tracking** | Tune TV-L1 flow parameters and inspect the per-channel flow field via an animated quiver overlay. |
+| **Source Grouping** | Browse the final source catalogue; open moment-map and spectral analysis windows for individual or combined sources. |
+
+### Running the pipeline
+
+1. **Load Cube** → select a FITS / HDF5 / `.npy` / `.npz` file.
+2. **Configure & Run Decomposition** → opens the Scale Viewer; choose the wavelet detail band and adjust `k_sigma`, `min_area`, and flux threshold. Click **Save Parameters**.
+3. **Run Source ID** → runs wavelet detection → TV-L1 optical flow → track linking → source grouping in a background thread. Logs stream live into each card.
+4. **View Sources per Channel** / **Combined Analysis** / **Individual Analysis** → explore results.
+
+### Scale Viewer
+
+The Scale Viewer renders all starlet coefficient bands side by side for the middle active channel. Use the **Number of scales** and **Choose scale** radio buttons to identify the band that best isolates your sources. Parameters can be saved directly from this window.
+
+### Analysis windows
+
+- **Combined Analysis** — full-field moment-0, moment-1, and integrated spectra for all sources with toggleable per-source curves.
+- **Individual Analysis** — cropped moment maps and spectrum for one source at a time, selectable via radio buttons.
+
+All viewer windows share a synchronized channel slider and support on-the-fly colormap and normalization changes (`linear` / `log` / `power`).
+
+> Full GUI documentation is available at **[arnablahiry.github.io/software/nemo](https://arnablahiry.github.io/software/nemo)** under *Graphical Interface*.
+
+---
+
 ## API Reference
 
 ### `WaveletDetector`
@@ -378,9 +420,7 @@ detector.detect(cube, channel_list)  # → list[ChannelDetection]
 | Parameter | Type | Default | Description |
 |---|---|---|---|
 | `detector` | `WaveletDetector\|None` | `None` | Detector instance; `None` uses defaults |
-| `min_match_overlap` | `int` | `5` | Min pixel overlap to accept an advected→component continuation |
-| `min_split_overlap` | `int` | `3` | Min pixel overlap to attribute an unmatched component as a split |
-| `max_gap_dist` | `float` | `15.0` | Max centroid distance (px) for centroid-fallback gap bridging |
+| `min_match_overlap` | `int` | `5` | Min pixel overlap (advected mask ∩ component footprint) to accept a continuation |
 | `max_gap_channels` | `int` | `5` | Max consecutive unmatched channels before track deactivation |
 | `min_displacement` | `float` | `3.0` | Min cumulative centroid travel (px) for kinematic classification |
 | `wav_abrupt_thresh` | `float` | `0.5` | Wavelet abruptness threshold for false-detection removal |
@@ -420,7 +460,7 @@ nemo-detect --cube data/cube.fits --out results/ \
 # Full detection + tracking pipeline
 nemo-track  --cube data/cube.fits --out results/ \
             --scales 6 --k-sigma 5.0 --use-scale 5 --min-area 20 \
-            --min-match-overlap 5 --min-split-overlap 3 --min-displacement 3.0
+            --min-match-overlap 5 --max-gap-channels 5 --min-displacement 3.0
 
 # IST denoising (requires cosmostat)
 nemo-denoise cube.fits --threshold 5.0 --thresh-increm 2.0 --num-iter 20
