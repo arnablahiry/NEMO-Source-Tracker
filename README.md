@@ -150,7 +150,7 @@ The central challenge in spectral-cube tracking is that a single physical gas st
 
 Given a confirmed source footprint $M^{(t)} \in \{0,1\}^{H \times W}$ and the flow field $\mathbf{v} = (v_r, v_c)$ computed between channels $t$ and $t+1$, every pixel $(y, x)$ in the footprint is displaced to a predicted destination:
 
-$$\mathcal{A}[M, \mathbf{v}](y', x') = \sum_{(y,x)\,:\,M(y,x)=1} \delta\!\left(y' - \lfloor y + v_r(y,x) \rceil\right) \delta\!\left(x' - \lfloor x + v_c(y,x) \rceil\right)$$
+$$\mathcal{A}\bigl[M, \mathbf{v}\bigr](y', x') = \sum_{(y,x)\,:\,M(y,x)=1} \delta\!\left(y' - \lfloor y + v_r(y,x) \rceil\right) \delta\!\left(x' - \lfloor x + v_c(y,x) \rceil\right)$$
 
 where $v_r, v_c$ are sampled at sub-pixel positions via Catmull-Rom cubic interpolation (`scipy.ndimage.map_coordinates(order=3)`). The result $\mathcal{A}$ is a floating-point weight map: each non-zero entry counts how many source pixels were advected to that destination. Overlap between $\mathcal{A}$ and a candidate component mask is computed as $\sum_{y,x} \mathcal{A}(y,x) \cdot M_{\rm blob}(y,x)$, a dot product that naturally down-weights sparsely populated destination pixels.
 
@@ -170,7 +170,7 @@ Track linking runs **twice** over the cube — once forward (channel 0 → N) an
 
 The cost matrix $\mathcal{C} \in \mathbb{R}^{N_{\rm tracks} \times N_{\rm blobs}}$ measures the negative pixel overlap between each track's advected mask and each component footprint:
 
-$$\mathcal{C}_{ij} = -\sum_{y,x} \mathcal{A}[M_i^{\rm adv}, \mathbf{v}](y,x) \cdot M_j^{(c_{\rm tgt})}(y,x)$$
+$$\mathcal{C}_{ij} = -\sum_{y,x} \mathcal{A}\bigl[M_i^{\rm adv}, \mathbf{v}\bigr](y,x) \cdot M_j^{(c_{\rm tgt})}(y,x)$$
 
 The globally optimal one-to-one assignment is solved with the Hungarian algorithm in $\mathcal{O}(N^3)$. A pair $(i, j)$ is accepted as a **continuation** only if $-\mathcal{C}_{ij} \geq \varepsilon_{\rm match}$ (default 5 px); the advected mask of track $i$ is reset to component $j$'s footprint.
 
@@ -256,7 +256,7 @@ Each source is scored on two complementary metrics.
 
 **Flow-advection IoU** — measures how coherently the source footprint follows the flow field from channel to channel:
 
-$$\text{IoU}_{\rm flow} = \frac{1}{|C|-1} \sum_{i=1}^{|C|-1} \frac{|\mathcal{A}[M^{(c_i)}, \mathbf{v}_{i,i+1}] > 0.3) \cap M^{(c_{i+1})}|}{|\mathcal{A}[M^{(c_i)}, \mathbf{v}_{i,i+1}] > 0.3) \cup M^{(c_{i+1})}|}$$
+$$\text{IoU}_{\rm flow} = \frac{1}{|C|-1} \sum_{i=1}^{|C|-1} \frac{\bigl|\bigl(\mathcal{A}\bigl[M^{(c_i)}, \mathbf{v}_{i,i+1}\bigr] > 0.3\bigr) \cap M^{(c_{i+1})}\bigr|}{\bigl|\bigl(\mathcal{A}\bigl[M^{(c_i)}, \mathbf{v}_{i,i+1}\bigr] > 0.3\bigr) \cup M^{(c_{i+1})}\bigr|}$$
 
 Real sources coherently follow the flow and score $\text{IoU}_{\rm flow} \gtrsim 0.25$; artefacts move incoherently and score near zero.
 
