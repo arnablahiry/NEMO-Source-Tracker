@@ -20,6 +20,10 @@ dependencies = [
 
 [project.optional-dependencies]
 denoise = []  # cosmostat/pycs must be installed manually (not on PyPI)
+test = [
+    "pytest>=7",
+    "pytest-cov>=4",
+]
 docs = [
     "sphinx>=7",
     "sphinx-book-theme>=1.1",
