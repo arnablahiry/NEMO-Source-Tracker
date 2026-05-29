@@ -43,8 +43,8 @@ intersphinx_mapping = {
 html_theme       = "sphinx_book_theme"
 html_title       = "N.E.M.O."
 html_static_path = ["_static"]
-html_logo        = "../assets/nemo_ico.png"
-html_favicon     = "../assets/nemo_ico.png"
+html_logo        = "_static/nemo_ico.png"
+html_favicon     = "_static/nemo_ico.png"
 html_baseurl     = "https://arnablahiry.github.io/software/nemo/"
 
 html_theme_options = {
@@ -55,8 +55,8 @@ html_theme_options = {
     "home_page_in_toc":      True,
     "show_navbar_depth":     2,
     "logo": {
-        "image_light": "../assets/nemo_ico.png",
-        "image_dark":  "../assets/nemo_ico.png",
+        "image_light": "nemo_ico.png",
+        "image_dark":  "nemo_ico.png",
     },
 }
 

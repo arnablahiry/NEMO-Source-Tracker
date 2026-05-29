@@ -28,6 +28,11 @@ jobs:
         run: |
           pip install -e ".[docs]"
 
+      - name: Copy assets into docs/_static
+        run: |
+          mkdir -p docs/_static
+          cp assets/nemo_ico.png docs/_static/nemo_ico.png
+
       - name: Build Sphinx HTML
         run: |
           sphinx-build -b html docs docs/_build/html -W --keep-going
@@ -40,6 +45,9 @@ jobs:
   deploy:
     needs: build
     runs-on: ubuntu-latest
+    permissions:
+      pages:    write
+      id-token: write
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
