@@ -12,9 +12,8 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib.colors import Normalize
 from matplotlib.patches import Ellipse
 
-from ._constants import (ACCENT, BG, CARD_BG, CARD_BORDER, CARD_OFF,
-                         CARD_W, CARD_H, DIM, DIM_TXT,
-                         RUN_COLOR, BTN_W, BTN_H, BTN_ZONE_H, BTN_TALL)
+from . import _constants as C
+from ._constants import (CARD_W, CARD_H, BTN_W, BTN_H, BTN_ZONE_H, BTN_TALL)
 from .widgets import _FlatBtn, _QueueStream
 from .dialogs import WaveletParamsDialog, FlowParamsDialog, ScalingDialog
 from .viewers import SliceViewer, ScaleViewer
@@ -173,10 +172,10 @@ class CubeCard(tk.Frame):
     def __init__(self, master, index: int, name: str, description: str,
                  app=None, on_loaded=None, **kw):
         active = index == 0
-        super().__init__(master, bg=CARD_BG if active else CARD_OFF,
+        super().__init__(master, bg=C.CARD_BG if active else C.CARD_OFF,
                          bd=0, highlightthickness=1, takefocus=False,
-                         highlightbackground=CARD_BORDER if active else DIM,
-                         highlightcolor=CARD_BORDER if active else DIM, **kw)
+                         highlightbackground=C.CARD_BORDER if active else C.DIM,
+                         highlightcolor=C.CARD_BORDER if active else C.DIM, **kw)
         self.index        = index
         self.name         = name
         self.description  = description
@@ -205,7 +204,7 @@ class CubeCard(tk.Frame):
         self._gif_canvas             = None
         self._gif_last_ch            = None
 
-        bg = CARD_BG if active else CARD_OFF
+        bg = C.CARD_BG if active else C.CARD_OFF
 
         self._preview_frame = tk.Frame(self, bg=bg, width=CARD_W, height=CARD_H)
         self._preview_frame.pack_propagate(False)
@@ -214,14 +213,14 @@ class CubeCard(tk.Frame):
 
         self._toggle_btn = tk.Label(
             self._preview_frame, text="Show Logs",
-            bg="#1a1a2e", fg=ACCENT,
+            bg=C.BG, fg=C.ACCENT,
             font=("Helvetica", 7, "bold"), cursor="pointinghand",
             relief=tk.FLAT, padx=4, pady=2,
         )
         self._toggle_btn.bind("<Button-1>", lambda _e: self._toggle_view())
 
         self._step_label = tk.Label(self, text=name, bg=bg,
-                                    fg=ACCENT if active else DIM_TXT,
+                                    fg=C.STEP_LABEL_TXT if active else C.STEP_LABEL_DIS,
                                     font=("Helvetica", 9, "bold"))
         self._step_label.pack(pady=(0, 4))
 
@@ -242,15 +241,15 @@ class CubeCard(tk.Frame):
     def _build_buttons_step0(self, bg: str, active: bool):
         row1 = tk.Frame(self._btn_zone, bg=bg)
         row1.pack(pady=(4, 3))
-        self.btn_load     = _FlatBtn(row1, "Load Cube",     self._load_cube,    bg_on=ACCENT, active=active, height=BTN_TALL)
-        self.btn_view     = _FlatBtn(row1, "View Slice",    self._view_slice,   bg_on=ACCENT, active=False,  height=BTN_TALL)
+        self.btn_load     = _FlatBtn(row1, "Load Cube",     self._load_cube,    bg_on=C.ACCENT, active=active, height=BTN_TALL)
+        self.btn_view     = _FlatBtn(row1, "View Slice",    self._view_slice,   bg_on=C.ACCENT, active=False,  height=BTN_TALL)
         self.btn_load.pack(side=tk.LEFT, padx=3)
         self.btn_view.pack(side=tk.LEFT, padx=3)
 
         row2 = tk.Frame(self._btn_zone, bg=bg)
         row2.pack()
-        self.btn_spectrum = _FlatBtn(row2, "View Spectrum", self._view_spectrum, bg_on=ACCENT, active=False, height=BTN_TALL)
-        self.btn_scaling  = _FlatBtn(row2, "Scaling",       self._open_scaling,  bg_on=ACCENT, active=False, height=BTN_TALL)
+        self.btn_spectrum = _FlatBtn(row2, "View Spectrum", self._view_spectrum, bg_on=C.ACCENT, active=False, height=BTN_TALL)
+        self.btn_scaling  = _FlatBtn(row2, "Scaling",       self._open_scaling,  bg_on=C.ACCENT, active=False, height=BTN_TALL)
         self.btn_spectrum.pack(side=tk.LEFT, padx=3)
         self.btn_scaling.pack(side=tk.LEFT, padx=3)
 
@@ -260,7 +259,7 @@ class CubeCard(tk.Frame):
         row1 = tk.Frame(self._btn_zone, bg=bg)
         row1.pack(pady=(4, 3))
         self.btn_configure = _FlatBtn(row1, "Configure & Run Decomposition",
-                                      self._open_configure, bg_on=ACCENT, active=active,
+                                      self._open_configure, bg_on=C.ACCENT, active=active,
                                       height=BTN_TALL, btn_width=_span)
         self.btn_configure.pack(padx=3)
         self.btn_decompose = self.btn_configure
@@ -268,10 +267,10 @@ class CubeCard(tk.Frame):
         row2 = tk.Frame(self._btn_zone, bg=bg)
         row2.pack()
         self.btn_run = _FlatBtn(row2, "Run Source ID",
-                                self._run_sourceid, bg_on=RUN_COLOR, active=active,
+                                self._run_sourceid, bg_on=C.RUN_COLOR, active=active,
                                 font=("Helvetica", 11, "bold"), height=BTN_TALL)
         self.btn_det_view = _FlatBtn(row2, "View Detections",
-                                     self._view_detections, bg_on=ACCENT, active=False,
+                                     self._view_detections, bg_on=C.ACCENT, active=False,
                                      height=BTN_TALL)
         self.btn_run.pack(side=tk.LEFT, padx=3)
         self.btn_det_view.pack(side=tk.LEFT, padx=3)
@@ -280,10 +279,10 @@ class CubeCard(tk.Frame):
         row1 = tk.Frame(self._btn_zone, bg=bg)
         row1.pack(pady=(4, 0))
         self.btn_flow_params = _FlatBtn(row1, "Optical Flow\nParameters",
-                                        self._open_flow_params, bg_on=ACCENT, active=active,
+                                        self._open_flow_params, bg_on=C.ACCENT, active=active,
                                         height=BTN_TALL, font=("Helvetica", 10))
         self.btn_flow_view   = _FlatBtn(row1, "View Flow\nPer Channel",
-                                        self._view_flow, bg_on=ACCENT, active=False,
+                                        self._view_flow, bg_on=C.ACCENT, active=False,
                                         height=BTN_TALL, font=("Helvetica", 10))
         self.btn_flow_params.pack(side=tk.LEFT, padx=3)
         self.btn_flow_view.pack(side=tk.LEFT, padx=3)
@@ -294,7 +293,7 @@ class CubeCard(tk.Frame):
         row1.pack(pady=(4, 3))
         self.btn_view_sources = _FlatBtn(row1, "View Sources per Channel",
                                          self._view_sources_per_channel,
-                                         bg_on=RUN_COLOR, active=False,
+                                         bg_on=C.RUN_COLOR, active=False,
                                          font=("Helvetica", 11, "bold"),
                                          btn_width=_span, height=BTN_TALL)
         self.btn_view_sources.pack(padx=3)
@@ -303,11 +302,11 @@ class CubeCard(tk.Frame):
         row2.pack()
         self.btn_combined    = _FlatBtn(row2, "Combined\nAnalysis",
                                         self._combined_analysis,
-                                        bg_on=ACCENT, active=False,
+                                        bg_on=C.ACCENT, active=False,
                                         height=BTN_TALL, font=("Helvetica", 10))
         self.btn_individual  = _FlatBtn(row2, "Individual\nAnalysis",
                                         self._individual_analysis,
-                                        bg_on=ACCENT, active=False,
+                                        bg_on=C.ACCENT, active=False,
                                         height=BTN_TALL, font=("Helvetica", 10))
         self.btn_combined.pack(side=tk.LEFT, padx=3)
         self.btn_individual.pack(side=tk.LEFT, padx=3)
@@ -317,7 +316,7 @@ class CubeCard(tk.Frame):
         row1.pack(pady=(6, 0))
         self.btn_run = _FlatBtn(row1, "Run Pipeline",
                                 lambda: messagebox.showinfo("Coming soon", "Not yet implemented."),
-                                bg_on=RUN_COLOR, active=False,
+                                bg_on=C.RUN_COLOR, active=False,
                                 font=("Helvetica", 9, "bold"))
         self.btn_run.pack(padx=3)
 
@@ -329,10 +328,10 @@ class CubeCard(tk.Frame):
         self._clear_preview()
         self._log_widget = tk.Text(
             self._preview_frame,
-            bg="#0a0a14", fg=ACCENT,
+            bg=C.LOG_BG, fg=C.ACCENT,
             font=("Courier", 7), wrap=tk.NONE,
             state=tk.DISABLED, relief=tk.FLAT, bd=0,
-            insertbackground=ACCENT,
+            insertbackground=C.ACCENT,
         )
         self._log_widget.place(x=0, y=0, width=CARD_W, height=CARD_H)
         if self._log_lines:
@@ -361,7 +360,7 @@ class CubeCard(tk.Frame):
             from PIL import ImageTk
             self._cached_fig_tk = ImageTk.PhotoImage(self._cached_fig_pil)
             lbl = tk.Label(self._preview_frame, image=self._cached_fig_tk,
-                           bg="#0a0a14", bd=0)
+                           bg=C.LOG_BG, bd=0)
             lbl.place(x=0, y=0, width=CARD_W, height=CARD_H)
             self._preview_state = "figure"
         else:
@@ -404,8 +403,8 @@ class CubeCard(tk.Frame):
             w.configure(state=tk.DISABLED)
 
     def _draw_placeholder(self):
-        bg       = "#2a2a4a" if self.enabled else "#111128"
-        txt_fill = "#666699"  if self.enabled else DIM_TXT
+        bg       = C.PLACEHOLDER_BG_EN if self.enabled else C.PLACEHOLDER_BG_DIS
+        txt_fill = C.PLACEHOLDER_TXT  if self.enabled else C.DIM_TXT
         ph = tk.Canvas(self._preview_frame, width=CARD_W, height=CARD_H,
                        bg=bg, highlightthickness=0)
         ph.create_text(CARD_W // 2, CARD_H // 2,
@@ -682,7 +681,7 @@ class CubeCard(tk.Frame):
     def _install_gif_canvas(self):
         self._clear_preview()
         self._gif_canvas = tk.Canvas(self._preview_frame, width=CARD_W, height=CARD_H,
-                                     bg="#0a0a14", highlightthickness=0)
+                                     bg=C.LOG_BG, highlightthickness=0)
         self._gif_canvas.place(x=0, y=0, width=CARD_W, height=CARD_H)
         self._gif_last_ch = None
 
@@ -1091,13 +1090,13 @@ class CubeCard(tk.Frame):
         if self.enabled:
             return
         self.enabled = True
-        bg = CARD_BG
-        self.configure(bg=bg, highlightbackground=CARD_BORDER, highlightcolor=CARD_BORDER)
+        bg = C.CARD_BG
+        self.configure(bg=bg, highlightbackground=C.CARD_BORDER, highlightcolor=C.CARD_BORDER)
         self._preview_frame.configure(bg=bg)
         self._btn_zone.configure(bg=bg)
         self._clear_preview()
         self._draw_placeholder()
-        self._step_label.configure(fg=ACCENT, bg=bg)
+        self._step_label.configure(fg=C.STEP_LABEL_TXT, bg=bg)
         for child in self._btn_zone.winfo_children():
             if isinstance(child, tk.Frame) and not isinstance(child, _FlatBtn):
                 child.configure(bg=bg)
@@ -1154,12 +1153,12 @@ class CubeCard(tk.Frame):
                 self._draw_placeholder()
         else:
             self.enabled = False
-            bg = CARD_OFF
-            self.configure(bg=bg, highlightbackground=DIM, highlightcolor=DIM)
+            bg = C.CARD_OFF
+            self.configure(bg=bg, highlightbackground=C.DIM, highlightcolor=C.DIM)
             self._preview_frame.configure(bg=bg)
             self._btn_zone.configure(bg=bg)
             self._draw_placeholder()
-            self._step_label.configure(fg=DIM_TXT, bg=bg)
+            self._step_label.configure(fg=C.STEP_LABEL_DIS, bg=bg)
             for child in self._btn_zone.winfo_children():
                 if isinstance(child, tk.Frame) and not isinstance(child, _FlatBtn):
                     child.configure(bg=bg)

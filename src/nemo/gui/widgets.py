@@ -56,6 +56,22 @@ class _FlatBtn(tk.Frame):
             w.unbind("<Enter>")
             w.unbind("<Leave>")
 
+    def _refresh(self, mapping: dict | None = None):
+        """Repaint button after theme change, preserving active/disabled state."""
+        if self._active:
+            self.configure(bg=self._bg_on)
+            self._lbl.configure(bg=self._bg_on, fg=self._fg_on)
+        else:
+            # For disabled buttons, read the current tk bg (already mapped by _walk)
+            # and look up the mapped DIM_TXT from the mapping
+            bg = self.cget('bg')
+            if mapping:
+                fg = mapping.get(DIM_TXT.lower(), DIM_TXT)
+            else:
+                fg = DIM_TXT
+            self.configure(bg=bg)
+            self._lbl.configure(bg=bg, fg=fg)
+
     def _click(self, _e=None):
         if self._active and self._cmd:
             self._cmd()

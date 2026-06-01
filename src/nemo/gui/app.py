@@ -1,8 +1,10 @@
 import tkinter as tk
 from tkinter import messagebox
 
-from ._constants import (ACCENT, BG, CARD_BG, DIM,
-                         BANNER_W, BTN_H, _ASSETS)
+from . import _constants as C
+from ._constants import (ACCENT, DIM,
+                         BANNER_W, BTN_H,
+                         _ASSETS)
 from .card import CubeCard
 
 
@@ -13,8 +15,9 @@ class NemoGUI(tk.Tk):
     def __init__(self):
         super().__init__()
         self.title("N.E.M.O : Graphical Interface")
-        self.configure(bg=BG)
+        self.configure(bg=C.BG)
         self.resizable(False, False)
+        self._set_window_appearance()
         self.lift()
         self.attributes("-topmost", True)
         self.after(200, lambda: self.attributes("-topmost", False))
@@ -50,7 +53,7 @@ class NemoGUI(tk.Tk):
              "merge relationships."),
         ]
 
-        grid = tk.Frame(self, bg=BG)
+        grid = tk.Frame(self, bg=C.BG)
         self.cards: list[CubeCard] = []
         for i in range(self.N_CARDS):
             name, desc = _STEPS[i]
@@ -62,11 +65,11 @@ class NemoGUI(tk.Tk):
         self.update_idletasks()
         content_h = grid.winfo_reqheight()
 
-        banner = tk.Frame(self, bg=BG, height=content_h)
-        banner.pack_propagate(False)
-        banner_w = self._build_banner(banner, content_h)
-        banner.configure(width=banner_w)
-        banner.pack(side=tk.LEFT, fill=tk.Y, padx=(10, 0), pady=10)
+        self._banner_frame = tk.Frame(self, bg=C.BG, height=content_h)
+        self._banner_frame.pack_propagate(False)
+        banner_w = self._build_banner(self._banner_frame, content_h)
+        self._banner_frame.configure(width=banner_w)
+        self._banner_frame.pack(side=tk.LEFT, fill=tk.Y, padx=(10, 0), pady=10)
 
         tk.Frame(self, bg=DIM, width=1).pack(side=tk.LEFT, fill=tk.Y, pady=10)
         grid.pack(side=tk.LEFT, padx=10, pady=10)
@@ -85,7 +88,9 @@ class NemoGUI(tk.Tk):
     BANNER_LINKS_TOP_FRAC = 0.24
     def _build_banner(self, frame: tk.Frame, height: int) -> int:
         import webbrowser
-        p = _ASSETS / "nemo_vertical.png"
+        # Use light banner image in light mode, dark in dark mode
+        img_name = "nemo_vertical_light.png" if C._current_theme == "light" else "nemo_vertical.png"
+        p = _ASSETS / img_name
         try:
             from PIL import Image, ImageTk
             try:
@@ -113,17 +118,20 @@ class NemoGUI(tk.Tk):
             img = img.resize((phys_w, phys_h), _LANCZOS)
 
             if img.mode == "RGBA":
-                bg = Image.new("RGB", img.size, BG)
+                # Convert hex color to RGB tuple for PIL
+                hex_color = C.BG.lstrip('#')
+                bg_rgb = tuple(int(hex_color[i:i+2], 16) for i in (0, 2, 4))
+                bg = Image.new("RGB", img.size, bg_rgb)
                 bg.paste(img, mask=img.split()[3])
                 img = bg
 
             self._banner_img = ImageTk.PhotoImage(img)
             new_w = disp_w
-            tk.Label(frame, image=self._banner_img, bg=BG, bd=0,
+            tk.Label(frame, image=self._banner_img, bg=C.BG, bd=0,
                      anchor="n").place(x=0, y=0, width=disp_w, height=disp_h)
         except Exception:
             new_w = BANNER_W
-            tk.Label(frame, text="N\nE\nM\nO", bg=BG, fg=ACCENT,
+            tk.Label(frame, text="N\nE\nM\nO", bg=C.BG, fg=ACCENT,
                      font=("Helvetica", 16, "bold")).place(relx=0.5, rely=0.5, anchor="center")
 
         btn_w = new_w - 8
@@ -133,14 +141,14 @@ class NemoGUI(tk.Tk):
 
         def _mklink(label, url, x, y, w):
             lbl = tk.Label(
-                frame, text=label, bg=BG, fg=ACCENT,
+                frame, text=label, bg=C.BG, fg=C.BANNER_BTN_TXT,
                 font=("Helvetica", 10),
                 cursor="pointinghand", relief=tk.FLAT,
             )
             lbl.place(x=x, y=y, anchor="n", width=w, height=btn_h)
             lbl.bind("<Button-1>", lambda _e: webbrowser.open(url))
-            lbl.bind("<Enter>",    lambda _e: lbl.configure(bg=CARD_BG))
-            lbl.bind("<Leave>",    lambda _e: lbl.configure(bg=BG))
+            lbl.bind("<Enter>",    lambda _e: lbl.configure(bg=C.BANNER_BTN_HOVER))
+            lbl.bind("<Leave>",    lambda _e: lbl.configure(bg=C.BG))
             lbl.lift()
             return lbl
 
@@ -155,28 +163,81 @@ class NemoGUI(tk.Tk):
 
         y_rst  = height - btn_h - 6
         y_log  = y_rst  - btn_h - gap
+        y_theme = y_log - btn_h - gap
 
         logs_btn = tk.Label(
-            frame, text="View All Logs", bg=BG, fg=ACCENT,
+            frame, text="View All Logs", bg=C.BG, fg=C.BANNER_BTN_TXT,
             font=("Helvetica", 10), cursor="pointinghand", relief=tk.FLAT,
         )
         logs_btn.place(x=cx, y=y_log, anchor="n", width=btn_w, height=btn_h)
         logs_btn.bind("<Button-1>", lambda _e: self._view_all_logs())
-        logs_btn.bind("<Enter>",    lambda _e: logs_btn.configure(bg=CARD_BG))
-        logs_btn.bind("<Leave>",    lambda _e: logs_btn.configure(bg=BG))
+        logs_btn.bind("<Enter>",    lambda _e: logs_btn.configure(bg=C.BANNER_BTN_HOVER))
+        logs_btn.bind("<Leave>",    lambda _e: logs_btn.configure(bg=C.BG))
+
+        self._theme_btn = tk.Label(
+            frame, text="☀", bg=C.BG, fg=C.BANNER_BTN_TXT,
+            font=("Helvetica", 12), cursor="pointinghand", relief=tk.FLAT,
+        )
+        self._theme_btn.place(x=cx, y=y_theme, anchor="n", width=btn_w, height=btn_h)
+        self._theme_btn.bind("<Button-1>", lambda _e: self._toggle_theme())
+        self._theme_btn.bind("<Enter>",    lambda _e: self._theme_btn.configure(bg=C.BANNER_BTN_HOVER))
+        self._theme_btn.bind("<Leave>",    lambda _e: self._theme_btn.configure(bg=C.BG))
 
         reset_btn = tk.Label(
-            frame, text="Reset", bg=BG, fg=ACCENT,
+            frame, text="Reset", bg=C.BG, fg=C.BANNER_BTN_TXT,
             font=("Helvetica", 10, "bold"), cursor="pointinghand", relief=tk.FLAT,
         )
         reset_btn.place(x=cx, y=y_rst, anchor="n", width=btn_w, height=btn_h)
         reset_btn.bind("<Button-1>", lambda _e: self._reset_pipeline())
-        reset_btn.bind("<Enter>",    lambda _e: reset_btn.configure(bg=CARD_BG))
-        reset_btn.bind("<Leave>",    lambda _e: reset_btn.configure(bg=BG))
+        reset_btn.bind("<Enter>",    lambda _e: reset_btn.configure(bg=C.BANNER_BTN_HOVER))
+        reset_btn.bind("<Leave>",    lambda _e: reset_btn.configure(bg=C.BG))
 
         logs_btn.lift()
+        self._theme_btn.lift()
         reset_btn.lift()
         return new_w
+
+    def _set_window_appearance(self):
+        """Set the window title bar appearance to match the theme."""
+        try:
+            # On macOS, set the window appearance (light or dark)
+            mode = "light" if C._current_theme == "light" else "dark"
+            if mode == "light":
+                # For light mode, explicitly set to light appearance with white header
+                self.tk.call("tk", "unsupported", "MacWindowStyle", "set", self, "darkModeButton", 0)
+                self.tk.call("tk", "unsupported", "MacWindowStyle", "set", self, "unified", 0)
+            else:
+                # For dark mode
+                self.tk.call("tk", "unsupported", "MacWindowStyle", "set", self, "darkModeButton", 1)
+        except Exception:
+            # If this fails (e.g., on non-macOS), just continue silently
+            pass
+
+    def _reload_banner(self):
+        """Reload the banner image for the current theme."""
+        try:
+            # Clear old image from memory
+            if hasattr(self, '_banner_img'):
+                del self._banner_img
+            # Clear the banner frame
+            for widget in self._banner_frame.winfo_children():
+                widget.destroy()
+            # Rebuild the banner
+            content_h = self._banner_frame.winfo_reqheight()
+            self._build_banner(self._banner_frame, content_h)
+        except Exception:
+            # If reload fails, silently continue
+            pass
+
+    def _toggle_theme(self):
+        """Toggle between dark and light theme."""
+        from . import _constants as C
+        from ._theme import apply_theme
+        new = "light" if C._current_theme == "dark" else "dark"
+        apply_theme(self, new)
+        self._theme_btn.configure(text="🌙" if new == "light" else "☀")
+        self._set_window_appearance()
+        self._reload_banner()
 
     def _view_all_logs(self):
         all_sections = []
@@ -191,15 +252,15 @@ class NemoGUI(tk.Tk):
 
         win = tk.Toplevel(self)
         win.title("All Pipeline Logs")
-        win.configure(bg=BG)
+        win.configure(bg=C.BG)
         win.geometry("700x500")
         win.resizable(True, True)
 
-        frame = tk.Frame(win, bg=BG)
+        frame = tk.Frame(win, bg=C.BG)
         frame.pack(fill=tk.BOTH, expand=True, padx=8, pady=8)
         sb = tk.Scrollbar(frame)
         sb.pack(side=tk.RIGHT, fill=tk.Y)
-        txt = tk.Text(frame, bg=CARD_BG, fg=ACCENT, font=("Courier", 12),
+        txt = tk.Text(frame, bg=C.CARD_BG, fg=ACCENT, font=("Courier", 12),
                       wrap=tk.WORD, state=tk.DISABLED,
                       yscrollcommand=sb.set, relief=tk.FLAT, bd=0)
         txt.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
