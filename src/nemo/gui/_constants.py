@@ -8,6 +8,7 @@ CARD_BORDER = "#1a6060"
 DIM         = "#44445a"
 DIM_TXT     = "#555577"
 LOG_BG      = "#0a0a14"
+LOG_TXT     = "#4ecca3"
 PLACEHOLDER_TXT = "#666699"
 PLACEHOLDER_BG_EN = "#2a2a4a"
 PLACEHOLDER_BG_DIS = "#111128"
@@ -33,17 +34,17 @@ DARK_THEME = {
     "BG": "#1a1a2e", "CARD_BG": "#16213e", "CARD_OFF": "#0f0f1a",
     "ACCENT": "#4ecca3", "CARD_BORDER": "#1a6060", "DIM": "#44445a",
     "DIM_TXT": "#555577", "RUN_COLOR": "#f5a623",
-    "LOG_BG": "#0a0a14", "PLACEHOLDER_TXT": "#666699",
+    "LOG_BG": "#0a0a14", "LOG_TXT": "#4ecca3", "PLACEHOLDER_TXT": "#666699",
     "PLACEHOLDER_BG_EN": "#2a2a4a", "PLACEHOLDER_BG_DIS": "#111128",
     "STEP_LABEL_TXT": "#b0b5d0", "STEP_LABEL_DIS": "#555577",
     "BANNER_BTN_TXT": "#e0e0e8", "BANNER_BTN_HOVER": "#2a2a4a",
 }
 
 LIGHT_THEME = {
-    "BG": "#f5f5fa", "CARD_BG": "#ffffff", "CARD_OFF": "#efeffa",
-    "ACCENT": "#abf4e3", "CARD_BORDER": "#2a9090", "DIM": "#d5d5e0",
-    "DIM_TXT": "#7a7a9a", "RUN_COLOR": "#c47800",
-    "LOG_BG": "#fafafd", "PLACEHOLDER_TXT": "#9999bb",
+    "BG": "#f5f5fa", "CARD_BG": "#ffffff", "CARD_OFF": "#f0f0f5",
+    "ACCENT": "#abf4e3", "CARD_BORDER": "#2a9090", "DIM": "#e8e8f0",
+    "DIM_TXT": "#b0b0c0", "RUN_COLOR": "#c47800",
+    "LOG_BG": "#fafafd", "LOG_TXT": "#1a5a4a", "PLACEHOLDER_TXT": "#9999bb",
     "PLACEHOLDER_BG_EN": "#e8e8f5", "PLACEHOLDER_BG_DIS": "#f5f5fa",
     "STEP_LABEL_TXT": "#6a6a8a", "STEP_LABEL_DIS": "#aaaacc",
     "BANNER_BTN_TXT": "#2a2a4a", "BANNER_BTN_HOVER": "#e8e8f0",

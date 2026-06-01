@@ -1,7 +1,8 @@
 import queue
 import tkinter as tk
 
-from ._constants import ACCENT, CARD_OFF, DIM_TXT
+from . import _constants as C
+from ._constants import ACCENT
 
 
 class _FlatBtn(tk.Frame):
@@ -22,8 +23,8 @@ class _FlatBtn(tk.Frame):
 
         h  = height    if height    is not None else BTN_H
         w  = btn_width if btn_width is not None else BTN_W
-        bg = bg_on if active else CARD_OFF
-        fg = fg_on if active else DIM_TXT
+        bg = bg_on if active else C.CARD_OFF
+        fg = fg_on if active else C.DIM_TXT
 
         super().__init__(parent, width=w, height=h,
                          bg=bg, cursor="arrow", **kw)
@@ -49,8 +50,8 @@ class _FlatBtn(tk.Frame):
 
     def disable(self):
         self._active = False
-        self.configure(bg=CARD_OFF, cursor="arrow")
-        self._lbl.configure(bg=CARD_OFF, fg=DIM_TXT)
+        self.configure(bg=C.CARD_OFF, cursor="arrow")
+        self._lbl.configure(bg=C.CARD_OFF, fg=C.DIM_TXT)
         for w in (self, self._lbl):
             w.unbind("<Button-1>")
             w.unbind("<Enter>")
@@ -63,12 +64,12 @@ class _FlatBtn(tk.Frame):
             self._lbl.configure(bg=self._bg_on, fg=self._fg_on)
         else:
             # For disabled buttons, read the current tk bg (already mapped by _walk)
-            # and look up the mapped DIM_TXT from the mapping
+            # and look up the mapped C.DIM_TXT from the mapping
             bg = self.cget('bg')
             if mapping:
-                fg = mapping.get(DIM_TXT.lower(), DIM_TXT)
+                fg = mapping.get(C.DIM_TXT.lower(), C.DIM_TXT)
             else:
-                fg = DIM_TXT
+                fg = C.DIM_TXT
             self.configure(bg=bg)
             self._lbl.configure(bg=bg, fg=fg)
 

@@ -18,7 +18,7 @@ def apply_theme(root_widget, mode: str) -> None:
     # Update module-level color constants so newly created widgets use the right colors
     theme = C.LIGHT_THEME if mode == "light" else C.DARK_THEME
     for key in ("BG", "CARD_BG", "CARD_OFF", "ACCENT", "CARD_BORDER", "DIM",
-                "DIM_TXT", "LOG_BG", "PLACEHOLDER_TXT", "PLACEHOLDER_BG_EN",
+                "DIM_TXT", "LOG_BG", "LOG_TXT", "PLACEHOLDER_TXT", "PLACEHOLDER_BG_EN",
                 "PLACEHOLDER_BG_DIS", "STEP_LABEL_TXT", "STEP_LABEL_DIS",
                 "BANNER_BTN_TXT", "BANNER_BTN_HOVER"):
         if key in theme:

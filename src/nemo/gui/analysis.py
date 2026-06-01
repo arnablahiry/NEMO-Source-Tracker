@@ -32,8 +32,14 @@ def _build_source_unions(tracks, sources, H, W):
 
 
 def _source_colors(sources):
+    from . import _constants as C
     cmap = plt.get_cmap("tab10")
-    return {s["id"]: cmap(i % 10) for i, s in enumerate(sources)}
+    colors = {s["id"]: cmap(i % 10) for i, s in enumerate(sources)}
+    # Darken colors in light mode for better visibility
+    if C._current_theme == "light":
+        colors = {sid: tuple(0.5 * c for c in rgba[:3]) + (rgba[3],)
+                  for sid, rgba in colors.items()}
+    return colors
 
 
 class CombinedAnalysisWindow(tk.Toplevel):

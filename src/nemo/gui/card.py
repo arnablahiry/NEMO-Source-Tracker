@@ -56,7 +56,7 @@ def _build_wavelet_frames(cube: np.ndarray, detections: list) -> dict:
     for d in detections:
         fig = plt.Figure(figsize=(fsz, fsz), dpi=dpi, facecolor="#0a0a14")
         ax  = fig.add_axes([0, 0, 1, 1]);  ax.set_axis_off()
-        ax.imshow(cube[d.channel], cmap="inferno", norm=norm, origin="lower")
+        ax.imshow(cube[d.channel], cmap="grey_r", norm=norm, origin="lower")
         for mask in d.footprint_masks:
             ax.contour(mask.astype(float), [0.5],
                        colors=["white"], linewidths=0.6, alpha=0.85)
@@ -75,7 +75,7 @@ def _build_flow_frames(cube: np.ndarray, flow_seq: list,
         H, W = img_data.shape
         fig = plt.Figure(figsize=(fsz, fsz), dpi=dpi, facecolor="#0a0a14")
         ax  = fig.add_axes([0, 0, 1, 1]);  ax.set_axis_off()
-        ax.imshow(img_data, cmap="inferno", norm=norm, origin="lower")
+        ax.imshow(img_data, cmap="grey_r", norm=norm, origin="lower")
         qs = max(H // 35, 3)
         ys = np.arange(0, H, qs);  xs = np.arange(0, W, qs)
         Xq, Yq = np.meshgrid(xs, ys)
@@ -123,7 +123,7 @@ def _build_sources_frames(cube: np.ndarray, tracks: list, sources: list) -> dict
         H, W = img_data.shape
         fig = plt.Figure(figsize=(fsz, fsz), dpi=dpi, facecolor="#0a0a14")
         ax  = fig.add_axes([0, 0, 1, 1]);  ax.set_axis_off()
-        ax.imshow(img_data, cmap="inferno", norm=norm, origin="lower")
+        ax.imshow(img_data, cmap="grey_r", norm=norm, origin="lower")
 
         union = np.zeros((H, W), dtype=bool)
         for sid, ch_dict in src_ch_masks.items():
@@ -328,10 +328,10 @@ class CubeCard(tk.Frame):
         self._clear_preview()
         self._log_widget = tk.Text(
             self._preview_frame,
-            bg=C.LOG_BG, fg=C.ACCENT,
+            bg=C.LOG_BG, fg=C.LOG_TXT,
             font=("Courier", 7), wrap=tk.NONE,
             state=tk.DISABLED, relief=tk.FLAT, bd=0,
-            insertbackground=C.ACCENT,
+            insertbackground=C.LOG_TXT,
         )
         self._log_widget.place(x=0, y=0, width=CARD_W, height=CARD_H)
         if self._log_lines:
@@ -436,7 +436,7 @@ class CubeCard(tk.Frame):
         vmax = float(np.nanmax(mom0))
         if vmax <= vmin:
             vmax = vmin + 1e-9
-        ax.imshow(mom0, cmap="inferno",
+        ax.imshow(mom0, cmap="grey_r",
                   norm=Normalize(vmin=vmin, vmax=vmax),
                   origin="lower")
 
@@ -520,7 +520,7 @@ class CubeCard(tk.Frame):
             img_data = cube[d.channel]
             fig = plt.Figure(figsize=(fsz, fsz), dpi=dpi, facecolor="#0a0a14")
             ax  = fig.add_axes([0, 0, 1, 1]);  ax.set_axis_off()
-            ax.imshow(img_data, cmap="inferno", norm=norm, origin="lower")
+            ax.imshow(img_data, cmap="grey_r", norm=norm, origin="lower")
             for mask in d.footprint_masks:
                 ax.contour(mask.astype(float), [0.5],
                            colors=["white"], linewidths=0.6, alpha=0.85)
@@ -544,7 +544,7 @@ class CubeCard(tk.Frame):
             H, W = img_data.shape
             fig = plt.Figure(figsize=(fsz, fsz), dpi=dpi, facecolor="#0a0a14")
             ax  = fig.add_axes([0, 0, 1, 1]);  ax.set_axis_off()
-            ax.imshow(img_data, cmap="inferno", norm=norm, origin="lower")
+            ax.imshow(img_data, cmap="grey_r", norm=norm, origin="lower")
 
             qs = max(H // 35, 3)
             ys = np.arange(0, H, qs);  xs = np.arange(0, W, qs)
@@ -597,7 +597,7 @@ class CubeCard(tk.Frame):
             H, W = img_data.shape
             fig = plt.Figure(figsize=(fsz, fsz), dpi=dpi, facecolor="#0a0a14")
             ax  = fig.add_axes([0, 0, 1, 1]);  ax.set_axis_off()
-            ax.imshow(img_data, cmap="inferno", norm=norm, origin="lower")
+            ax.imshow(img_data, cmap="grey_r", norm=norm, origin="lower")
 
             union = np.zeros((H, W), dtype=bool)
             for sid, ch_dict in src_ch_masks.items():
