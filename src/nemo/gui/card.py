@@ -15,7 +15,7 @@ from matplotlib.patches import Ellipse
 from . import _constants as C
 from ._constants import (CARD_W, CARD_H, BTN_W, BTN_H, BTN_ZONE_H, BTN_TALL)
 from .widgets import _FlatBtn, _QueueStream
-from .dialogs import WaveletParamsDialog, FlowParamsDialog, ScalingDialog
+from .dialogs import WaveletParamsDialog, FlowParamsDialog, ScalingDialog, FalseDetParamsDialog
 from .viewers import SliceViewer, ScaleViewer
 from .analysis import CombinedAnalysisWindow, IndividualAnalysisWindow, _source_colors
 from .loaders import load_cube_file, _moment0, _apply_scaling
@@ -49,34 +49,47 @@ def _cube_norm(cube: np.ndarray):
     return Normalize(vmin=vmin, vmax=vmax)
 
 
-def _build_wavelet_frames(cube: np.ndarray, detections: list) -> dict:
+def _build_wavelet_frames(cube: np.ndarray, detections: list,
+                          beam=None, pixscale=None) -> dict:
     norm = _cube_norm(cube)
     dpi  = 72;  fsz = CARD_W / dpi
+    light = C._current_theme == "light"
+    cmap = "cubehelix_r" if light else "inferno"
+    contour_color = "black" if light else "white"
     frames: dict = {}
     for d in detections:
         fig = plt.Figure(figsize=(fsz, fsz), dpi=dpi, facecolor="#0a0a14")
         ax  = fig.add_axes([0, 0, 1, 1]);  ax.set_axis_off()
-        ax.imshow(cube[d.channel], cmap="grey_r", norm=norm, origin="lower")
+        ax.imshow(cube[d.channel], cmap=cmap, norm=norm, origin="lower")
         for mask in d.footprint_masks:
             ax.contour(mask.astype(float), [0.5],
-                       colors=["white"], linewidths=0.6, alpha=0.85)
+                       colors=[contour_color], linewidths=0.6, alpha=0.85)
+        H, W = cube.shape[1], cube.shape[2]
+        _draw_beam(ax, H, W, beam, pixscale, light)
         frames[d.channel] = _frame_to_pil(fig, dpi)
     return frames
 
 
 def _build_flow_frames(cube: np.ndarray, flow_seq: list,
-                       detections: list | None = None) -> dict:
+                       detections: list | None = None,
+                       beam=None, pixscale=None) -> dict:
     norm = _cube_norm(cube)
     dpi  = 72;  fsz = CARD_W / dpi
     det_by_ch = {d.channel: d for d in (detections or [])}
+    light = C._current_theme == "light"
+    cmap = "cubehelix_r" if light else "inferno"
+    contour_color = "black" if light else "white"
+    _H, _W = cube.shape[1], cube.shape[2]
+    _qs = max(min(_H, _W) // 28, 2)
+    _qcmap = "cool" if C._current_theme == "dark" else "viridis"
     frames: dict = {}
     for ch_ref, _ch_tgt, flow, _mask in flow_seq:
         img_data = cube[ch_ref]
         H, W = img_data.shape
         fig = plt.Figure(figsize=(fsz, fsz), dpi=dpi, facecolor="#0a0a14")
         ax  = fig.add_axes([0, 0, 1, 1]);  ax.set_axis_off()
-        ax.imshow(img_data, cmap="grey_r", norm=norm, origin="lower")
-        qs = max(H // 35, 3)
+        ax.imshow(img_data, cmap=cmap, norm=norm, origin="lower")
+        qs = _qs
         ys = np.arange(0, H, qs);  xs = np.arange(0, W, qs)
         Xq, Yq = np.meshgrid(xs, ys)
         u = flow[1][ys[:, None], xs[None, :]].ravel()
@@ -85,21 +98,72 @@ def _build_flow_frames(cube: np.ndarray, flow_seq: list,
         if pk > 1e-6:
             sc = qs * 0.9 / pk
             ax.quiver(Xq.ravel(), Yq.ravel(), u*sc, v*sc,
-                      mag, cmap="cool", angles="xy", scale_units="xy", scale=1,
+                      mag, cmap=_qcmap, angles="xy", scale_units="xy", scale=1,
                       width=0.003, headwidth=3, alpha=0.85, clim=(0, pk))
         d = det_by_ch.get(ch_ref)
         if d:
             for mask in d.footprint_masks:
                 ax.contour(mask.astype(float), [0.5],
-                           colors=["white"], linewidths=0.5, alpha=0.4)
+                           colors=[contour_color], linewidths=0.5, alpha=0.4)
+        _draw_beam(ax, H, W, beam, pixscale, light)
         frames[ch_ref] = _frame_to_pil(fig, dpi)
     return frames
 
 
-def _build_sources_frames(cube: np.ndarray, tracks: list, sources: list) -> dict:
+def _draw_beam(ax, H, W, beam, pixscale, light: bool) -> None:
+    """Draw only the beam ellipse."""
+    if beam is None:
+        return
+    from ..utils import add_beam
+    bmaj_pix = beam[0] / pixscale if (pixscale and pixscale != 1.0) else beam[0]
+    bmin_pix = beam[1] / pixscale if (pixscale and pixscale != 1.0) else beam[1]
+    corner_offset = max(bmaj_pix * 0.75, min(H, W) * 0.06)
+    add_beam(ax, bmin_pix=bmin_pix, bmaj_pix=bmaj_pix, bpa_deg=beam[2],
+             xy_offset=(corner_offset, corner_offset),
+             color="black" if light else "white")
+
+
+def _draw_annotations(ax, H, W, beam, pixscale, kpc_per_pix, light: bool) -> None:
+    """Draw scalebar (in kpc if kpc_per_pix available, else arcsec) and beam."""
+    from ..utils import add_beam
+    bar_color = "black" if light else "white"
+
+    if kpc_per_pix is not None:
+        # kpc scalebar
+        for kpc in (0.5, 1, 2, 5, 10, 20, 50, 100, 200):
+            bar_px = kpc / kpc_per_pix
+            if W * 0.12 <= bar_px <= W * 0.35:
+                break
+        x0, y0 = W * 0.68, H * 0.07
+        ax.plot([x0, x0 + bar_px], [y0, y0], color=bar_color, lw=1.5)
+        ax.text(x0 + bar_px / 2, y0 + H * 0.045, f'{kpc} kpc',
+                color=bar_color, ha="center", va="bottom", fontsize=6)
+    elif pixscale is not None:
+        for arcsec in (1, 2, 5, 10, 20, 30, 60, 120):
+            bar_px = arcsec / pixscale
+            if W * 0.12 <= bar_px <= W * 0.35:
+                break
+        x0, y0 = W * 0.68, H * 0.07
+        ax.plot([x0, x0 + bar_px], [y0, y0], color=bar_color, lw=1.5)
+        ax.text(x0 + bar_px / 2, y0 + H * 0.045, f'{arcsec}"',
+                color=bar_color, ha="center", va="bottom", fontsize=6)
+
+    if beam is not None:
+        bmaj_pix = beam[0] / pixscale if (pixscale and pixscale != 1.0) else beam[0]
+        bmin_pix = beam[1] / pixscale if (pixscale and pixscale != 1.0) else beam[1]
+        # Offset scales with spatial extent so the beam never overlaps the edge
+        corner_offset = max(bmaj_pix * 0.75, min(H, W) * 0.06)
+        add_beam(ax, bmin_pix=bmin_pix, bmaj_pix=bmaj_pix, bpa_deg=beam[2],
+                 xy_offset=(corner_offset, corner_offset), color=bar_color)
+
+
+def _build_sources_frames(cube: np.ndarray, tracks: list, sources: list,
+                          beam=None, pixscale=None) -> dict:
     from matplotlib.patches import Rectangle as _Rect
     norm = _cube_norm(cube)
     dpi  = 72;  fsz = CARD_W / dpi
+    light = C._current_theme == "light"
+    cmap = "cubehelix_r" if light else "inferno"
 
     tracks_by_id = {t["id"]: t for t in tracks}
     src_color = _source_colors(sources)
@@ -123,23 +187,14 @@ def _build_sources_frames(cube: np.ndarray, tracks: list, sources: list) -> dict
         H, W = img_data.shape
         fig = plt.Figure(figsize=(fsz, fsz), dpi=dpi, facecolor="#0a0a14")
         ax  = fig.add_axes([0, 0, 1, 1]);  ax.set_axis_off()
-        ax.imshow(img_data, cmap="grey_r", norm=norm, origin="lower")
-
-        union = np.zeros((H, W), dtype=bool)
-        for sid, ch_dict in src_ch_masks.items():
-            for m in ch_dict.get(ch, []):
-                union |= m
-        if union.any():
-            rgba = np.zeros((H, W, 4), dtype=np.float32)
-            rgba[~union] = [0, 0, 0, 0.55]
-            ax.imshow(rgba, origin="lower", interpolation="nearest")
+        ax.imshow(img_data, cmap=cmap, norm=norm, origin="lower")
 
         for sid, ch_dict in src_ch_masks.items():
             masks = ch_dict.get(ch)
             if not masks:
                 continue
             col  = src_color[sid]
-            lcol = (0.3*col[0]+0.7, 0.3*col[1]+0.7, 0.3*col[2]+0.7)
+            lcol = (min(col[0]+0.3, 1.0), min(col[1]+0.3, 1.0), min(col[2]+0.3, 1.0))
             for mask in masks:
                 ax.contour(mask.astype(float), [0.5],
                            colors=[col], linewidths=0.7)
@@ -160,6 +215,7 @@ def _build_sources_frames(cube: np.ndarray, tracks: list, sources: list) -> dict
                         bbox=dict(boxstyle="circle,pad=0.2",
                                   fc=lcol, ec=lcol, lw=1.0),
                         zorder=6)
+        _draw_beam(ax, H, W, beam, pixscale, light)
         frames[ch] = _frame_to_pil(fig, dpi)
     return frames
 
@@ -188,10 +244,12 @@ class CubeCard(tk.Frame):
         self.filepath     = None
         self.beam         = None
         self.pixscale     = None
+        self.kpc_per_pix  = None
         self.detections    = None
         self.flow_seq      = None
         self._wav_params   = None
-        self._flow_params  = None
+        self._flow_params      = None
+        self._false_det_params = None
         self._on_loaded    = on_loaded
         self._gif_frames   = []
         self._gif_idx      = 0
@@ -213,7 +271,7 @@ class CubeCard(tk.Frame):
 
         self._toggle_btn = tk.Label(
             self._preview_frame, text="Show Logs",
-            bg=C.BG, fg=C.ACCENT,
+            bg=C.BG, fg=C.LOG_TXT,
             font=("Helvetica", 7, "bold"), cursor="pointinghand",
             relief=tk.FLAT, padx=4, pady=2,
         )
@@ -276,16 +334,26 @@ class CubeCard(tk.Frame):
         self.btn_det_view.pack(side=tk.LEFT, padx=3)
 
     def _build_buttons_step2(self, bg: str, active: bool):
+        _span = BTN_W * 2 + 6
         row1 = tk.Frame(self._btn_zone, bg=bg)
-        row1.pack(pady=(4, 0))
+        row1.pack(pady=(4, 3))
         self.btn_flow_params = _FlatBtn(row1, "Optical Flow\nParameters",
                                         self._open_flow_params, bg_on=C.ACCENT, active=active,
                                         height=BTN_TALL, font=("Helvetica", 10))
-        self.btn_flow_view   = _FlatBtn(row1, "View Flow\nPer Channel",
-                                        self._view_flow, bg_on=C.ACCENT, active=False,
-                                        height=BTN_TALL, font=("Helvetica", 10))
+        self.btn_false_det_params = _FlatBtn(row1, "False Detection\nParameters",
+                                             self._open_false_det_params,
+                                             bg_on=C.ACCENT, active=active,
+                                             height=BTN_TALL, font=("Helvetica", 10))
         self.btn_flow_params.pack(side=tk.LEFT, padx=3)
-        self.btn_flow_view.pack(side=tk.LEFT, padx=3)
+        self.btn_false_det_params.pack(side=tk.LEFT, padx=3)
+
+        row2 = tk.Frame(self._btn_zone, bg=bg)
+        row2.pack()
+        self.btn_flow_view = _FlatBtn(row2, "View Flow Per Channel",
+                                      self._view_flow, bg_on=C.ACCENT, active=False,
+                                      height=BTN_TALL, btn_width=_span,
+                                      font=("Helvetica", 10))
+        self.btn_flow_view.pack(padx=3)
 
     def _build_buttons_step3(self, bg: str, active: bool):
         _span = BTN_W * 2 + 6
@@ -331,6 +399,7 @@ class CubeCard(tk.Frame):
             bg=C.LOG_BG, fg=C.LOG_TXT,
             font=("Courier", 7), wrap=tk.NONE,
             state=tk.DISABLED, relief=tk.FLAT, bd=0,
+            highlightthickness=0,
             insertbackground=C.LOG_TXT,
         )
         self._log_widget.place(x=0, y=0, width=CARD_W, height=CARD_H)
@@ -429,6 +498,8 @@ class CubeCard(tk.Frame):
         self._clear_preview()
 
         dpi = 96
+        cmap = "cubehelix_r" if C._current_theme == "light" else "inferno"
+        contour_color = "black" if C._current_theme == "light" else "white"
         fig = plt.Figure(figsize=(CARD_W/dpi, CARD_H/dpi), dpi=dpi, facecolor="#0a0a14")
         ax  = fig.add_axes([0, 0, 1, 1])
         ax.set_axis_off()
@@ -436,7 +507,7 @@ class CubeCard(tk.Frame):
         vmax = float(np.nanmax(mom0))
         if vmax <= vmin:
             vmax = vmin + 1e-9
-        ax.imshow(mom0, cmap="grey_r",
+        ax.imshow(mom0, cmap=cmap,
                   norm=Normalize(vmin=vmin, vmax=vmax),
                   origin="lower")
 
@@ -448,31 +519,17 @@ class CubeCard(tk.Frame):
                     union |= m
             if union.any():
                 ax.contour(union.astype(float), [0.5],
-                           colors=["white"], linewidths=0.6, alpha=0.7)
+                           colors=[contour_color], linewidths=0.6, alpha=0.7)
 
-        beam = pixscale = None
-        if self._app:
-            beam     = self._app.cards[0].beam
-            pixscale = self._app.cards[0].pixscale
-        if pixscale:
-            for arcsec in (1, 2, 5, 10, 20, 30, 60, 120):
-                bar_px = arcsec / pixscale
-                if W * 0.12 <= bar_px <= W * 0.35:
-                    break
-            x0, y0 = W * 0.68, H * 0.07
-            ax.plot([x0, x0+bar_px], [y0, y0], color="white", lw=1.5)
-            ax.text(x0+bar_px/2, y0+H*0.045, f'{arcsec}"',
-                    color="white", ha="center", va="bottom", fontsize=6)
-        if beam and pixscale:
-            pad = max(beam[0]/pixscale, 5) * 0.75
-            ax.add_patch(Ellipse((pad, pad),
-                                 width=beam[1]/pixscale, height=beam[0]/pixscale,
-                                 angle=beam[2], color="cyan", alpha=0.75))
+        c0 = self._app.cards[0] if self._app else self
+        _draw_annotations(ax, H, W, c0.beam, c0.pixscale, c0.kpc_per_pix,
+                          light=C._current_theme == "light")
 
         canvas = FigureCanvasTkAgg(fig, master=self._preview_frame)
         canvas.draw()
         canvas.get_tk_widget().configure(highlightthickness=0)
         canvas.get_tk_widget().place(x=0, y=0, width=CARD_W, height=CARD_H)
+        self._preview_frame.update_idletasks()
 
         try:
             from PIL import Image as PilImage
@@ -512,133 +569,32 @@ class CubeCard(tk.Frame):
         return Normalize(vmin=vmin, vmax=vmax)
 
     def _render_wavelet_gif(self, cube: np.ndarray, detections: list):
-        norm = self._cube_norm(cube)
-        dpi  = 72;  fsz = CARD_W / dpi
-        frames: dict[int, "PilImage.Image"] = {}
-
-        for d in detections:
-            img_data = cube[d.channel]
-            fig = plt.Figure(figsize=(fsz, fsz), dpi=dpi, facecolor="#0a0a14")
-            ax  = fig.add_axes([0, 0, 1, 1]);  ax.set_axis_off()
-            ax.imshow(img_data, cmap="grey_r", norm=norm, origin="lower")
-            for mask in d.footprint_masks:
-                ax.contour(mask.astype(float), [0.5],
-                           colors=["white"], linewidths=0.6, alpha=0.85)
-            frames[d.channel] = self._frame_to_pil(fig, dpi)
-
-        self._gif_frames_by_ch = frames
-        self._gif_tk_by_ch     = {}
+        c0 = self._app.cards[0] if self._app else None
+        self._gif_frames_by_ch = _build_wavelet_frames(
+            cube, detections,
+            beam=c0.beam if c0 else None,
+            pixscale=c0.pixscale if c0 else None,
+        )
+        self._gif_tk_by_ch = {}
 
     def _render_flow_gif(self, cube: np.ndarray, flow_seq: list):
-        norm = self._cube_norm(cube)
-        dpi  = 72;  fsz = CARD_W / dpi
-        frames: dict[int, "PilImage.Image"] = {}
-
-        det_by_ch = {}
-        if self._app:
-            for d in (self._app.cards[1].detections or []):
-                det_by_ch[d.channel] = d
-
-        for ch_ref, _ch_tgt, flow, _mask in flow_seq:
-            img_data = cube[ch_ref]
-            H, W = img_data.shape
-            fig = plt.Figure(figsize=(fsz, fsz), dpi=dpi, facecolor="#0a0a14")
-            ax  = fig.add_axes([0, 0, 1, 1]);  ax.set_axis_off()
-            ax.imshow(img_data, cmap="grey_r", norm=norm, origin="lower")
-
-            qs = max(H // 35, 3)
-            ys = np.arange(0, H, qs);  xs = np.arange(0, W, qs)
-            Xq, Yq = np.meshgrid(xs, ys)
-            u = flow[1][ys[:, None], xs[None, :]].ravel()
-            v = flow[0][ys[:, None], xs[None, :]].ravel()
-            mag = np.hypot(u, v);  pk = float(mag.max())
-            if pk > 1e-6:
-                sc = qs * 0.9 / pk
-                ax.quiver(Xq.ravel(), Yq.ravel(), u*sc, v*sc,
-                          mag, cmap="cool", angles="xy", scale_units="xy", scale=1,
-                          width=0.003, headwidth=3, alpha=0.85, clim=(0, pk))
-
-            d = det_by_ch.get(ch_ref)
-            if d:
-                for mask in d.footprint_masks:
-                    ax.contour(mask.astype(float), [0.5],
-                               colors=["white"], linewidths=0.5, alpha=0.4)
-
-            frames[ch_ref] = self._frame_to_pil(fig, dpi)
-
-        self._gif_frames_by_ch = frames
-        self._gif_tk_by_ch     = {}
+        c0  = self._app.cards[0] if self._app else None
+        det = self._app.cards[1].detections if self._app else None
+        self._gif_frames_by_ch = _build_flow_frames(
+            cube, flow_seq, det,
+            beam=c0.beam if c0 else None,
+            pixscale=c0.pixscale if c0 else None,
+        )
+        self._gif_tk_by_ch = {}
 
     def _render_sources_gif(self, cube: np.ndarray, tracks: list, sources: list):
-        from matplotlib.patches import Rectangle as _Rect
-
-        norm = self._cube_norm(cube)
-        dpi  = 72;  fsz = CARD_W / dpi
-
-        tracks_by_id = {t["id"]: t for t in tracks}
-        src_color = _source_colors(sources)
-        src_ch_masks: dict[int, dict[int, list]] = {}
-        for s in sources:
-            ch_dict: dict[int, list] = {}
-            for tid in s["track_ids"]:
-                t = tracks_by_id.get(tid)
-                if not t:
-                    continue
-                for ch, mask in t["masks"].items():
-                    ch_dict.setdefault(ch, []).append(mask)
-            src_ch_masks[s["id"]] = ch_dict
-
-        all_channels = sorted({ch for d in src_ch_masks.values() for ch in d})
-        frames: dict[int, "PilImage.Image"] = {}
-        PAD_BB = 4
-
-        for ch in all_channels:
-            img_data = cube[ch]
-            H, W = img_data.shape
-            fig = plt.Figure(figsize=(fsz, fsz), dpi=dpi, facecolor="#0a0a14")
-            ax  = fig.add_axes([0, 0, 1, 1]);  ax.set_axis_off()
-            ax.imshow(img_data, cmap="grey_r", norm=norm, origin="lower")
-
-            union = np.zeros((H, W), dtype=bool)
-            for sid, ch_dict in src_ch_masks.items():
-                for m in ch_dict.get(ch, []):
-                    union |= m
-            if union.any():
-                rgba = np.zeros((H, W, 4), dtype=np.float32)
-                rgba[~union] = [0, 0, 0, 0.55]
-                ax.imshow(rgba, origin="lower", interpolation="nearest")
-
-            for sid, ch_dict in src_ch_masks.items():
-                masks = ch_dict.get(ch)
-                if not masks:
-                    continue
-                col  = src_color[sid]
-                lcol = (0.3*col[0]+0.7, 0.3*col[1]+0.7, 0.3*col[2]+0.7)
-                for mask in masks:
-                    ax.contour(mask.astype(float), [0.5],
-                               colors=[col], linewidths=0.7)
-                    rows, cols = np.where(mask)
-                    if not len(rows):
-                        continue
-                    r0, r1 = int(rows.min()), int(rows.max())
-                    c0, c1 = int(cols.min()), int(cols.max())
-                    ax.add_patch(_Rect(
-                        (c0 - PAD_BB, r0 - PAD_BB),
-                        c1 - c0 + 2*PAD_BB, r1 - r0 + 2*PAD_BB,
-                        linewidth=0.8, edgecolor=lcol,
-                        facecolor="none", zorder=4,
-                    ))
-                    ax.text(c1 + PAD_BB, r1 + PAD_BB, str(sid),
-                            ha="center", va="center", fontsize=6,
-                            color="black", fontweight="bold",
-                            bbox=dict(boxstyle="circle,pad=0.2",
-                                      fc=lcol, ec=lcol, lw=1.0),
-                            zorder=6)
-
-            frames[ch] = self._frame_to_pil(fig, dpi)
-
-        self._gif_frames_by_ch = frames
-        self._gif_tk_by_ch     = {}
+        c0 = self._app.cards[0] if self._app else None
+        self._gif_frames_by_ch = _build_sources_frames(
+            cube, tracks, sources,
+            beam=c0.beam if c0 else None,
+            pixscale=c0.pixscale if c0 else None,
+        )
+        self._gif_tk_by_ch = {}
 
     def _render_scale_preview(self, cube: np.ndarray, wav_p: dict):
         from ..detect import starlet_transform, active_channels
@@ -654,6 +610,7 @@ class CubeCard(tk.Frame):
 
         self._clear_preview()
         dpi = 72
+        cmap = "cubehelix_r" if C._current_theme == "light" else "inferno"
         fig = plt.Figure(figsize=(CARD_W/dpi, CARD_H/dpi), dpi=dpi, facecolor="#0a0a14")
         for i in range(n_panels):
             ax = fig.add_subplot(n_rows, n_cols, i + 1)
@@ -663,7 +620,7 @@ class CubeCard(tk.Frame):
                 sp.set_edgecolor("#333355"); sp.set_linewidth(0.3)
             band = np.clip(coeffs[i], 0, None)
             vmax = float(np.nanpercentile(band, 99.5)) if band.max() > 0 else 1e-9
-            ax.imshow(band, cmap="seismic", origin="lower", vmin=-vmax, vmax=vmax)
+            ax.imshow(band, cmap=cmap, origin="lower", vmin=-vmax, vmax=vmax)
             label = "Coarse" if i == n_scales - 1 else f"S{i+1}"
             ax.set_title(label, color="white", fontsize=5, pad=1)
         fig.subplots_adjust(left=0.01, right=0.99, top=0.93, bottom=0.01,
@@ -723,22 +680,26 @@ class CubeCard(tk.Frame):
         if not path:
             return
         try:
-            cube, beam, pixscale, vel = load_cube_file(path)
+            cube, beam, pixscale, vel, kpc_per_pix = load_cube_file(path)
         except Exception as exc:
             messagebox.showerror("Load error", str(exc))
             return
-        self.cube_raw  = cube
-        self.cube      = _apply_scaling(cube, self.scaling)
-        self.vel_array = vel
-        self.filepath  = path
-        self.beam      = beam
-        self.pixscale  = pixscale
+        self.cube_raw    = cube
+        self.cube        = _apply_scaling(cube, self.scaling)
+        self.vel_array   = vel
+        self.filepath    = path
+        self.beam        = beam
+        self.pixscale    = pixscale
+        self.kpc_per_pix = kpc_per_pix
         self._render_moment0()
         self.btn_view.enable()
         self.btn_spectrum.enable()
         self.btn_scaling.enable()
         if self._app and len(self._app.cards) > 2:
             self._app.cards[2].btn_flow_params.enable()
+            self._app.cards[2].btn_false_det_params.enable()
+        if self._app:
+            self._app._disable_theme_button()
         if self._on_loaded:
             self._on_loaded(self.index)
 
@@ -750,7 +711,8 @@ class CubeCard(tk.Frame):
                     detections=self._app.cards[1].detections if self._app else None,
                     mode="raw",
                     initial_norm=self.scaling.get("mode", "linear"),
-                    initial_gamma=self.scaling.get("gamma", 0.5))
+                    initial_gamma=self.scaling.get("gamma", 0.5),
+                    beam=self.beam, pixscale=self.pixscale, kpc_per_pix=self.kpc_per_pix)
 
     def _open_scaling(self):
         if self.cube_raw is None:
@@ -836,9 +798,10 @@ class CubeCard(tk.Frame):
         self.detections  = detections
         self._wav_params = params
         if frames is None:
-            cube = self._app.cards[0].cube if self._app else None
+            c0   = self._app.cards[0] if self._app else None
+            cube = c0.cube if c0 else None
             if cube is not None:
-                frames = _build_wavelet_frames(cube, detections)
+                frames = _build_wavelet_frames(cube, detections, c0.beam, c0.pixscale)
             else:
                 frames = {}
         self._gif_frames_by_ch = frames
@@ -861,7 +824,10 @@ class CubeCard(tk.Frame):
         cube = self._app.cards[0].cube if self._app else None
         if cube is None:
             return
-        SliceViewer(self, cube, detections=self.detections, mode="detections")
+        c0 = self._app.cards[0] if self._app else None
+        SliceViewer(self, cube, detections=self.detections, mode="detections",
+                    beam=c0.beam if c0 else None, pixscale=c0.pixscale if c0 else None,
+                    kpc_per_pix=c0.kpc_per_pix if c0 else None)
 
     def _view_choose_scales(self):
         cube = self._app.cards[0].cube if self._app else None
@@ -910,10 +876,13 @@ class CubeCard(tk.Frame):
         self.btn_configure.enable()
 
     def _run_sourceid(self):
-        cube = self._app.cards[0].cube if self._app else None
+        c0   = self._app.cards[0] if self._app else None
+        cube = c0.cube if c0 else None
         if cube is None:
             messagebox.showwarning("No cube", "Load a cube in the Moment 0 step first.")
             return
+        _beam     = c0.beam     if c0 else None
+        _pixscale = c0.pixscale if c0 else None
 
         wav_p  = self._wav_params or dict(
             scales=6, k_sigma=5.0, use_scale=5,
@@ -922,6 +891,7 @@ class CubeCard(tk.Frame):
         flow_p = (self._app.cards[2]._flow_params if self._app else None) or dict(
             min_match_overlap=5, max_gap_channels=5,
         )
+        fd_p = (self._app.cards[2]._false_det_params if self._app else None) or {}
 
         self.btn_run.disable()
         self.btn_decompose.disable()
@@ -939,16 +909,16 @@ class CubeCard(tk.Frame):
             try:
                 from ..detect import WaveletDetector, active_channels
                 from ..track  import compute_flow_sequence, link_tracks, _reconcile_splits
-                from ..track  import group_into_sources
+                from ..track  import group_into_sources, classify_sources, classify_kinematic
 
                 ch_list = active_channels(cube)
                 det = WaveletDetector(**wav_p).detect(cube, channel_list=ch_list, verbose=True)
-                wav_frames = _build_wavelet_frames(cube, det)
+                wav_frames = _build_wavelet_frames(cube, det, _beam, _pixscale)
                 q.put(("detection_done", det, wav_p, wav_frames))
 
                 q.put(("switch_card", 2))
                 flow_seq   = compute_flow_sequence(det, verbose=True)
-                flow_frames = _build_flow_frames(cube, flow_seq, det)
+                flow_frames = _build_flow_frames(cube, flow_seq, det, _beam, _pixscale)
                 q.put(("flow_done", flow_seq, flow_frames))
 
                 q.put(("switch_card", 3))
@@ -962,10 +932,15 @@ class CubeCard(tk.Frame):
                                   min_match_overlap=flow_p["min_match_overlap"],
                                   max_gap_channels=flow_p["max_gap_channels"])
                 _reconcile_splits(tracks, bwd, verbose=True)
+                classify_kinematic(tracks, verbose=True)
                 sources = group_into_sources(tracks)
-                src_frames = (_build_sources_frames(cube, tracks, sources)
-                              if sources else {})
-                q.put(("tracking_done", flow_seq, tracks, sources, src_frames))
+                good_sources, false_dets, _, _ = classify_sources(
+                    sources, tracks, det, flow_seq,
+                    verbose=True, **fd_p,
+                )
+                src_frames = (_build_sources_frames(cube, tracks, good_sources, _beam, _pixscale)
+                              if good_sources else {})
+                q.put(("tracking_done", flow_seq, tracks, good_sources, src_frames))
             except Exception as exc:
                 q.put(("error", str(exc)))
             finally:
@@ -985,13 +960,21 @@ class CubeCard(tk.Frame):
     def _on_flow_params_saved(self, params: dict):
         self._flow_params = params
 
+    def _open_false_det_params(self):
+        FalseDetParamsDialog(self, on_save=self._on_false_det_params_saved,
+                             current=self._false_det_params)
+
+    def _on_false_det_params_saved(self, params: dict):
+        self._false_det_params = params
+
     def _on_flow_done(self, flow_seq: list, frames: dict | None = None):
         self.flow_seq = flow_seq
         if frames is None:
-            cube = self._app.cards[0].cube if self._app else None
+            c0   = self._app.cards[0] if self._app else None
+            cube = c0.cube if c0 else None
             det  = self._app.cards[1].detections if self._app else None
             if cube is not None:
-                frames = _build_flow_frames(cube, flow_seq, det)
+                frames = _build_flow_frames(cube, flow_seq, det, c0.beam, c0.pixscale)
             else:
                 frames = {}
         self._gif_frames_by_ch = frames
@@ -1025,9 +1008,10 @@ class CubeCard(tk.Frame):
             f"  Sources  : {n_sources}\n"
         )
         if frames is None:
-            cube = self._app.cards[0].cube if self._app else None
+            c0   = self._app.cards[0] if self._app else None
+            cube = c0.cube if c0 else None
             if cube is not None and sources:
-                frames = _build_sources_frames(cube, tracks, sources)
+                frames = _build_sources_frames(cube, tracks, sources, c0.beam, c0.pixscale)
             else:
                 frames = {}
         self._gif_frames_by_ch = frames
@@ -1053,9 +1037,12 @@ class CubeCard(tk.Frame):
         cube = self._app.cards[0].cube if self._app else None
         if cube is None or not getattr(self, "sources", None):
             return
+        c0 = self._app.cards[0] if self._app else None
         SliceViewer(self, cube,
                     tracks=self.tracks, sources=self.sources,
-                    mode="sources")
+                    mode="sources",
+                    beam=c0.beam if c0 else None, pixscale=c0.pixscale if c0 else None,
+                    kpc_per_pix=c0.kpc_per_pix if c0 else None)
 
     def _combined_analysis(self):
         c0 = self._app.cards[0] if self._app else None
@@ -1080,7 +1067,10 @@ class CubeCard(tk.Frame):
         if cube is None:
             return
         det = self._app.cards[1].detections if self._app else None
-        SliceViewer(self, cube, detections=det, flow_seq=self.flow_seq, mode="flow")
+        c0  = self._app.cards[0] if self._app else None
+        SliceViewer(self, cube, detections=det, flow_seq=self.flow_seq, mode="flow",
+                    beam=c0.beam if c0 else None, pixscale=c0.pixscale if c0 else None,
+                    kpc_per_pix=c0.kpc_per_pix if c0 else None)
 
     # ------------------------------------------------------------------ #
     # Enable / reset
@@ -1108,11 +1098,41 @@ class CubeCard(tk.Frame):
             self.btn_run.enable()
         elif self.index == 2:
             self.btn_flow_params.enable()
+            self.btn_false_det_params.enable()
         elif self.index == 3:
             pass
         else:
             if hasattr(self, "btn_run"):
                 self.btn_run.enable()
+
+    def refresh_on_theme_change(self):
+        """Regenerate visualization frames with new theme colormap."""
+        if self._preview_state == "placeholder":
+            return
+        if self._preview_state == "logs":
+            return
+        if self._preview_state == "figure":
+            # Save current channel before regenerating
+            current_ch = self._gif_last_ch
+            # Regenerate frames based on what's currently displayed
+            cube0 = self._app.cards[0].cube if self._app else None
+            if self.index == 0 and self.cube is not None:
+                self._render_moment0(self.detections)
+            elif self.index == 1 and self.detections is not None and cube0 is not None:
+                self._render_wavelet_gif(cube0, self.detections)
+            elif self.index == 2 and self.flow_seq is not None and cube0 is not None:
+                self._render_flow_gif(cube0, self.flow_seq)
+            elif self.index == 3 and self.sources is not None and cube0 is not None:
+                self._render_sources_gif(cube0, self.tracks, self.sources)
+            # Clear the last channel so show_gif_for_channel will update
+            self._gif_last_ch = None
+            # Refresh the current displayed frame
+            if current_ch is not None:
+                self.show_gif_for_channel(current_ch)
+            elif self._app:
+                ch = self._app.current_gif_channel()
+                if ch is not None:
+                    self.show_gif_for_channel(ch)
 
     def reset(self):
         """Restore card to its initial state, clearing all results and logs.
@@ -1128,6 +1148,7 @@ class CubeCard(tk.Frame):
             self.filepath    = None
             self.beam        = None
             self.pixscale    = None
+            self.kpc_per_pix = None
         self.detections  = None
         self.flow_seq    = None
         self._wav_params = None
@@ -1163,7 +1184,7 @@ class CubeCard(tk.Frame):
                 if isinstance(child, tk.Frame) and not isinstance(child, _FlatBtn):
                     child.configure(bg=bg)
             for attr in ("btn_decompose", "btn_configure", "btn_det_view",
-                         "btn_flow_params", "btn_flow_view",
+                         "btn_flow_params", "btn_false_det_params", "btn_flow_view",
                          "btn_view_sources", "btn_combined", "btn_individual",
                          "btn_run"):
                 if hasattr(self, attr):

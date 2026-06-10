@@ -35,12 +35,13 @@ class NemoGUI(tk.Tk):
 
         _STEPS = [
             ("Moment 0",
-             "Moment 0"),
+             "Load and visualize your spectral cube. "
+             "The moment 0 map shows integrated emission "
+             "across all spectral channels."),
             ("Wavelet Detections",
-             "This step computes the per-spectral channel "
-             "unidentified detections of emissions with "
-             "2D Starlet transform and thresholding "
-             "in wavelet space."),
+             "Detect emission sources in each channel using "
+             "2D Starlet wavelet decomposition. A single "
+             "scale is selected to identify regions via thresholding."),
             ("Flow Tracking",
              "TV-L1 masked optical flow is computed between "
              "consecutive channel pairs and used to link "
@@ -229,6 +230,20 @@ class NemoGUI(tk.Tk):
             # If reload fails, silently continue
             pass
 
+    def _disable_theme_button(self):
+        """Disable the theme toggle button (when cube is loaded)."""
+        self._theme_btn.configure(fg=C.DIM_TXT, cursor="arrow")
+        self._theme_btn.unbind("<Button-1>")
+        self._theme_btn.unbind("<Enter>")
+        self._theme_btn.unbind("<Leave>")
+
+    def _enable_theme_button(self):
+        """Enable the theme toggle button (on reset)."""
+        self._theme_btn.configure(fg=C.BANNER_BTN_TXT, cursor="pointinghand")
+        self._theme_btn.bind("<Button-1>", lambda _e: self._toggle_theme())
+        self._theme_btn.bind("<Enter>",    lambda _e: self._theme_btn.configure(bg=C.BANNER_BTN_HOVER))
+        self._theme_btn.bind("<Leave>",    lambda _e: self._theme_btn.configure(bg=C.BG))
+
     def _toggle_theme(self):
         """Toggle between dark and light theme."""
         from . import _constants as C
@@ -238,6 +253,9 @@ class NemoGUI(tk.Tk):
         self._theme_btn.configure(text="🌙" if new == "light" else "☀")
         self._set_window_appearance()
         self._reload_banner()
+        # Refresh visualization frames with new colormap
+        for card in self.cards:
+            card.refresh_on_theme_change()
 
     def _view_all_logs(self):
         all_sections = []
@@ -286,10 +304,32 @@ class NemoGUI(tk.Tk):
         self._gif_master_idx = 0
         for card in self.cards:
             card.reset()
-        if self.cards[0].cube is not None:
-            self.cards[1].enable()
-            if len(self.cards) > 2:
-                self.cards[2].btn_flow_params.enable()
+        # Clear cube from card 0 completely on reset
+        self.cards[0].cube = None
+        self.cards[0].cube_raw = None
+        self.cards[0]._clear_preview()
+        self.cards[0]._draw_placeholder()
+        # Disable card 0 view/spectrum/scaling buttons (only Load should be enabled)
+        self.cards[0].btn_view.disable()
+        self.cards[0].btn_spectrum.disable()
+        self.cards[0].btn_scaling.disable()
+        # Disable all card 1 buttons that depend on card 0 data
+        self.cards[1].btn_decompose.disable()
+        self.cards[1].btn_configure.disable()
+        self.cards[1].btn_run.disable()
+        self.cards[1].btn_det_view.disable()
+        # Disable all card 2 buttons
+        if len(self.cards) > 2:
+            self.cards[2].btn_flow_params.disable()
+            self.cards[2].btn_false_det_params.disable()
+            self.cards[2].btn_flow_view.disable()
+        # Disable all card 3 buttons
+        if len(self.cards) > 3:
+            self.cards[3].btn_view_sources.disable()
+            self.cards[3].btn_combined.disable()
+            self.cards[3].btn_individual.disable()
+        # Re-enable theme button on reset
+        self._enable_theme_button()
 
     def current_gif_channel(self):
         if not self._gif_master_chs:

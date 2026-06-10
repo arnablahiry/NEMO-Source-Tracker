@@ -3,11 +3,16 @@
 Takes the list of per-channel detections produced by
 ``wavelet_detections.detect_cube_per_channel`` and runs a four-stage pipeline:
 
-Stage 1 — Masked optical flow
-    TV-L1 flow is computed between every consecutive channel pair, but only
-    inside the intersection of the two channels' union footprint masks.
-    Zeroing the images outside detected sources prevents artefact-level flow
-    vectors from leaking into the tracking step.
+Stage 1 — Masked optical flow on binary footprint masks
+    TV-L1 flow is computed between every consecutive channel pair on the
+    **binary union footprint masks** of the two channels (1 inside any
+    detected source, 0 elsewhere) — not on the raw intensity images.
+    Brightness constancy — TV-L1's core assumption — is trivially satisfied
+    for binary masks (1 → 1, 0 → 0), so the resulting flow tracks genuine
+    shape correspondence between channels rather than being distorted by
+    per-channel intensity changes (a source's spectral evolution).  Flow
+    vectors outside the joint mask region are clipped to zero so artefact-
+    level structure outside detected sources never influences tracking.
 
 Stage 2 — Track linking with split/merge detection
     Two-pass approach for symmetric split and merge detection.
@@ -94,14 +99,20 @@ def masked_flow_tvl1(
 ) -> np.ndarray:
     """TV-L1 optical flow restricted to *mask* pixels.
 
-    Both images are zeroed outside *mask* before the solver runs, so emission
-    structure outside detected source footprints never influences the flow
-    estimate inside them.
+    Operates on any pair of 2-D float arrays.  Both inputs are zeroed outside
+    *mask* before the solver runs, so structure outside the masked region
+    never influences the flow estimate inside it.
+
+    The canonical use in NEMO is to pass **binary union footprint masks**
+    (cast to float32) so that brightness constancy is trivially satisfied
+    and the flow tracks shape correspondence rather than intensity changes.
 
     Parameters
     ----------
     img_ref, img_tgt :
-        2-D float32 channel images, shape (H, W).
+        2-D float arrays, shape (H, W).  In NEMO's pipeline these are
+        binary union footprint masks; the function accepts intensity images
+        too.
     mask :
         Boolean (H, W) — True where flow should be estimated.
 
@@ -125,16 +136,23 @@ def compute_flow_sequence(
 ) -> list[tuple[int, int, np.ndarray, np.ndarray]]:
     """Compute masked TV-L1 flow for every consecutive detection pair.
 
-    The joint mask is the *union* of the source footprints from both channels.
-    Using the union (rather than the intersection) is critical for split
-    detection: when a source splits into a new spatial location between
-    channels, the two components may not overlap at all.  With an intersection
-    mask the flow would be zero everywhere and the predicted centroid would
-    not move — causing the split-off component to be mis-classified as a new
-    independent source.  With the union mask the TV-L1 solver sees the
-    source signal on both sides and produces flow vectors that point from
-    the pre-split footprint toward the post-split footprint, allowing
-    :func:`link_tracks` to attribute the new component to the correct parent.
+    Flow is solved on the **binary union footprint masks** of each channel
+    pair — not on the raw intensity images.  Inside the union, every pixel
+    is 1.0 in both inputs, so TV-L1's brightness constancy assumption is
+    trivially satisfied and the resulting flow tracks shape correspondence
+    instead of being confounded by per-channel intensity changes (a source's
+    spectral evolution).  Flow outside the joint mask is clipped to zero.
+
+    The joint mask itself is the *union* of the source footprints from both
+    channels (rather than the intersection).  Using the union is critical
+    for split detection: when a source splits into a new spatial location
+    between channels, the two components may not overlap at all.  With an
+    intersection mask the flow region would be empty.  With the union mask,
+    the binary "footprint blob" in the reference channel is asked to warp
+    to the "two-blob" union in the target channel, giving flow vectors that
+    point from the pre-split footprint toward each post-split component —
+    which lets :func:`link_tracks` (forward) and :func:`_reconcile_splits`
+    (backward) attribute new components to the correct parent.
 
     Parameters
     ----------
@@ -148,8 +166,8 @@ def compute_flow_sequence(
     H, W = detections[0].image.shape
     n_pairs = len(detections) - 1
     if verbose:
-        print(f"[Stage 1] Masked TV-L1 optical flow  ({n_pairs} channel pairs, "
-              f"image {H}×{W})")
+        print(f"[Stage 1] Masked TV-L1 optical flow on binary footprint masks "
+              f"({n_pairs} channel pairs, image {H}×{W})")
     results = []
 
     zero_flow_count = 0
@@ -169,7 +187,13 @@ def compute_flow_sequence(
         joint_mask = union_ref | union_tgt
 
         if joint_mask.any():
-            flow = masked_flow_tvl1(d_ref.image, d_tgt.image, joint_mask)
+            # Feed the BINARY union masks (cast to float32) into TV-L1 instead
+            # of the raw intensity images.  This enforces brightness constancy
+            # (1 → 1, 0 → 0) so the flow encodes morphological shift, not
+            # intensity change.
+            ref_field = union_ref.astype(np.float32)
+            tgt_field = union_tgt.astype(np.float32)
+            flow = masked_flow_tvl1(ref_field, tgt_field, joint_mask)
             mask_px = int(joint_mask.sum())
             u, v = flow[1], flow[0]
             mag = float(np.hypot(u[joint_mask], v[joint_mask]).max()) if joint_mask.any() else 0.0
@@ -1050,7 +1074,7 @@ def classify_sources(
                         dpi=130, bbox_inches='tight')
             fig.savefig(f'{results_dir}/false_detection_separation.pdf',
                         dpi=130, bbox_inches='tight')
-        plt.show()
+        plt.close(fig)
 
     return good_sources, false_dets, src_data, src_colors
 
@@ -1073,7 +1097,7 @@ def run_flow_tracker(
     min_displacement: float = 3.0,
     # Stage 5 — source classification
     wav_scale_idx: int = 3,
-    wav_abrupt_thresh: float = 0.5,
+    wav_abrupt_thresh: float = 0.4,
     flow_iou_thresh: float = 0.25,
     short_det_max: int = 8,
     vel_array: np.ndarray | None = None,

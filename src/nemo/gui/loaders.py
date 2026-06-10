@@ -75,8 +75,9 @@ def _load_h5(path: str):
                 beam     = (bmaj_px, bmin_px, bpa)
                 pixscale = 1.0
 
-        if "spatial_resolution_kpc_per_px" in f.attrs and pixscale == 1.0:
-            pass
+        kpc_per_pix = None
+        if "spatial_resolution_kpc_per_px" in f.attrs:
+            kpc_per_pix = float(f.attrs["spatial_resolution_kpc_per_px"])
 
         for src in (f, f[key]):
             if beam is None and "BMAJ" in src.attrs:
@@ -87,19 +88,20 @@ def _load_h5(path: str):
                 pixscale = abs(float(src.attrs["CDELT1"])) * 3600
 
     np.nan_to_num(data, copy=False, nan=0.0)
-    return data, beam, pixscale, vel_array
+    return data, beam, pixscale, vel_array, kpc_per_pix
 
 
 def load_cube_file(path: str):
-    """Return (cube, beam, pixscale, vel_array). Any may be None."""
+    """Return (cube, beam, pixscale, vel_array, kpc_per_pix). Any may be None."""
     ext = Path(path).suffix.lower()
     if ext == ".npy":
-        return np.load(path).astype(np.float32), None, None, None
+        return np.load(path).astype(np.float32), None, None, None, None
     if ext == ".npz":
         npz = np.load(path)
-        return npz[list(npz.files)[0]].astype(np.float32), None, None, None
+        return npz[list(npz.files)[0]].astype(np.float32), None, None, None, None
     if ext in (".fits", ".fit"):
-        return _load_fits(path)
+        cube, beam, pixscale, vel = _load_fits(path)
+        return cube, beam, pixscale, vel, None
     if ext in (".h5", ".hdf5", ".hdf"):
         return _load_h5(path)
     raise ValueError(f"Unsupported format: {ext}")

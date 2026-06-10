@@ -155,6 +155,67 @@ class FlowParamsDialog(tk.Toplevel):
         self.destroy()
 
 
+class FalseDetParamsDialog(tk.Toplevel):
+    """Modal dialog: edit false-detection rejection thresholds."""
+
+    def __init__(self, master, on_save, current: dict | None = None):
+        super().__init__(master)
+        self.title("False Detection — Parameters")
+        self.configure(bg=BG)
+        self.resizable(False, False)
+        self.grab_set()
+        self._on_save = on_save
+
+        defaults = dict(wav_abrupt_thresh=0.5, flow_iou_thresh=0.25, short_det_max=8)
+        if current:
+            defaults.update(current)
+
+        pad = dict(padx=14, pady=5, sticky="w")
+        tk.Label(self, text="False Detection Rejection", bg=BG, fg=ACCENT,
+                 font=("Helvetica", 12, "bold")).grid(
+                     row=0, column=0, columnspan=2, pady=(14, 8), padx=14)
+
+        fields = [
+            ("Wavelet abruptness threshold", "wav_abrupt_thresh"),
+            ("Flow IoU threshold",           "flow_iou_thresh"),
+            ("Short detection max (ch)",     "short_det_max"),
+        ]
+        self._vars: dict[str, tk.StringVar] = {}
+        for r, (label, key) in enumerate(fields, start=1):
+            tk.Label(self, text=label, bg=BG, fg="white",
+                     font=("Helvetica", 9), anchor="w").grid(row=r, column=0, **pad)
+            v = tk.StringVar(value=str(defaults[key]))
+            tk.Entry(self, textvariable=v, width=8, bg=CARD_BG, fg="white",
+                     insertbackground="white", relief=tk.FLAT,
+                     highlightthickness=0).grid(row=r, column=1, padx=14, pady=5, sticky="w")
+            self._vars[key] = v
+
+        btn_row = tk.Frame(self, bg=BG)
+        btn_row.grid(row=len(fields)+1, column=0, columnspan=2, pady=(12, 14))
+        _FlatBtn(btn_row, "Cancel", self.destroy, bg_on=DIM,    active=True).pack(side=tk.LEFT, padx=6)
+        _FlatBtn(btn_row, "Save",   self._save,   bg_on=ACCENT, active=True).pack(side=tk.LEFT, padx=6)
+
+        self.transient(master)
+        self.wait_visibility()
+        self.update_idletasks()
+        px = master.winfo_rootx() + (master.winfo_width()  - self.winfo_width())  // 2
+        py = master.winfo_rooty() + (master.winfo_height() - self.winfo_height()) // 2
+        self.geometry(f"+{px}+{py}")
+
+    def _save(self):
+        try:
+            params = dict(
+                wav_abrupt_thresh=float(self._vars["wav_abrupt_thresh"].get()),
+                flow_iou_thresh=float(self._vars["flow_iou_thresh"].get()),
+                short_det_max=int(self._vars["short_det_max"].get()),
+            )
+        except ValueError as exc:
+            messagebox.showerror("Bad parameter", str(exc), parent=self)
+            return
+        self._on_save(params)
+        self.destroy()
+
+
 class ScalingDialog(tk.Toplevel):
     """Choose Linear / Log / Power scaling for the cube."""
 

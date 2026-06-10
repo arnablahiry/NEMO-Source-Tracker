@@ -3,12 +3,14 @@ from pathlib import Path
 BG          = "#1a1a2e"
 CARD_BG     = "#16213e"
 CARD_OFF    = "#0f0f1a"
-ACCENT      = "#4ecca3"
+ACCENT      = "#3ee0b1"  # Active button color — must match DARK_THEME["ACCENT"]
 CARD_BORDER = "#1a6060"
 DIM         = "#44445a"
 DIM_TXT     = "#555577"
 LOG_BG      = "#0a0a14"
-LOG_TXT     = "#4ecca3"
+LOG_TXT     = "#4ecca3"  # Log text color — independent from ACCENT
+BUTTON_BG   = "#0f0f1a"  # Disabled button background — tune in LIGHT_THEME (must match DARK_THEME)
+BUTTON_TXT  = "#3a3a4a"  # Disabled button text — tune in LIGHT_THEME (must match DARK_THEME)
 PLACEHOLDER_TXT = "#666699"
 PLACEHOLDER_BG_EN = "#2a2a4a"
 PLACEHOLDER_BG_DIS = "#111128"
@@ -32,9 +34,11 @@ _CMAPS = ["inferno", "viridis", "magma", "plasma", "cividis",
 
 DARK_THEME = {
     "BG": "#1a1a2e", "CARD_BG": "#16213e", "CARD_OFF": "#0f0f1a",
-    "ACCENT": "#4ecca3", "CARD_BORDER": "#1a6060", "DIM": "#44445a",
+    "ACCENT": "#3ee0b1", "CARD_BORDER": "#1a6060", "DIM": "#44445a",  # Load/View button color
     "DIM_TXT": "#555577", "RUN_COLOR": "#f5a623",
-    "LOG_BG": "#0a0a14", "LOG_TXT": "#4ecca3", "PLACEHOLDER_TXT": "#666699",
+    "LOG_BG": "#0a0a14", "LOG_TXT": "#4ecca3",  # Log text color — independent from ACCENT
+    "BUTTON_BG": "#0f0f1a", "BUTTON_TXT": "#3a3a4a",  # Heavily faded for disabled cards
+    "PLACEHOLDER_TXT": "#666699",
     "PLACEHOLDER_BG_EN": "#2a2a4a", "PLACEHOLDER_BG_DIS": "#111128",
     "STEP_LABEL_TXT": "#b0b5d0", "STEP_LABEL_DIS": "#555577",
     "BANNER_BTN_TXT": "#e0e0e8", "BANNER_BTN_HOVER": "#2a2a4a",
@@ -42,9 +46,11 @@ DARK_THEME = {
 
 LIGHT_THEME = {
     "BG": "#f5f5fa", "CARD_BG": "#ffffff", "CARD_OFF": "#f0f0f5",
-    "ACCENT": "#abf4e3", "CARD_BORDER": "#2a9090", "DIM": "#e8e8f0",
-    "DIM_TXT": "#b0b0c0", "RUN_COLOR": "#c47800",
-    "LOG_BG": "#fafafd", "LOG_TXT": "#1a5a4a", "PLACEHOLDER_TXT": "#9999bb",
+    "ACCENT": "#d2e5d9", "CARD_BORDER": "#2a9090", "DIM": "#e8e8f0",  # Light green for Load/View buttons
+    "DIM_TXT": "#b0b0c0", "RUN_COLOR": "#ffdba0",
+    "LOG_BG": "#fafafd", "LOG_TXT": "#1a5a4a",
+    "BUTTON_BG": "#f0f0f5", "BUTTON_TXT": "#dcdce0",  # Heavily faded for disabled cards
+    "PLACEHOLDER_TXT": "#9999bb",
     "PLACEHOLDER_BG_EN": "#e8e8f5", "PLACEHOLDER_BG_DIS": "#f5f5fa",
     "STEP_LABEL_TXT": "#6a6a8a", "STEP_LABEL_DIS": "#aaaacc",
     "BANNER_BTN_TXT": "#2a2a4a", "BANNER_BTN_HOVER": "#e8e8f0",

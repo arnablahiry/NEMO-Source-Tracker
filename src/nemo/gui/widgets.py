@@ -50,8 +50,8 @@ class _FlatBtn(tk.Frame):
 
     def disable(self):
         self._active = False
-        self.configure(bg=C.CARD_OFF, cursor="arrow")
-        self._lbl.configure(bg=C.CARD_OFF, fg=C.DIM_TXT)
+        self.configure(bg=C.BUTTON_BG, cursor="arrow")
+        self._lbl.configure(bg=C.BUTTON_BG, fg=C.BUTTON_TXT)
         for w in (self, self._lbl):
             w.unbind("<Button-1>")
             w.unbind("<Enter>")
