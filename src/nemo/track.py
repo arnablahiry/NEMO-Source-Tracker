@@ -286,6 +286,74 @@ def _advect_mask(mask: np.ndarray, flow: np.ndarray) -> np.ndarray:
 
 
 # ---------------------------------------------------------------------------
+# Multi-scale tracking
+# ---------------------------------------------------------------------------
+
+def link_tracks_per_scale(
+    detections_per_scale: dict[int, list],
+    min_match_overlap: int = 5,
+    max_gap_channels: int = 5,
+    verbose: bool = False,
+) -> dict[int, list]:
+    """Run track linking separately for each scale.
+
+    Parameters
+    ----------
+    detections_per_scale : dict[int, list[ChannelDetection]]
+        scale → detections (one per channel at that scale)
+    min_match_overlap : int
+    max_gap_channels : int
+    verbose : bool
+
+    Returns
+    -------
+    dict[int, list[dict]]
+        scale → tracks
+    """
+    result = {}
+    for scale in sorted(detections_per_scale.keys()):
+        dets = detections_per_scale[scale]
+        flow_seq = compute_flow_sequence(dets, verbose=False)
+        tracks = link_tracks(
+            dets, flow_seq,
+            min_match_overlap=min_match_overlap,
+            max_gap_channels=max_gap_channels,
+            verbose=False,
+        )
+        # Add scale info to each track
+        for t in tracks:
+            t['scale'] = scale
+        result[scale] = tracks
+
+    if verbose:
+        for scale in sorted(result.keys()):
+            print(f"  scale {scale}: {len(result[scale])} tracks")
+
+    return result
+
+
+def source_per_scale(
+    tracks_per_scale: dict[int, list],
+) -> dict[int, list]:
+    """Group tracks into sources separately for each scale.
+
+    Parameters
+    ----------
+    tracks_per_scale : dict[int, list[dict]]
+        scale → tracks
+
+    Returns
+    -------
+    dict[int, list[dict]]
+        scale → sources
+    """
+    result = {}
+    for scale in sorted(tracks_per_scale.keys()):
+        result[scale] = group_into_sources(tracks_per_scale[scale])
+    return result
+
+
+# ---------------------------------------------------------------------------
 # Stage 2 — Track linking with split/merge detection
 # ---------------------------------------------------------------------------
 
@@ -1231,6 +1299,12 @@ class TrackingResult:
     false_detections: list
     src_data: dict
     src_colors: dict
+    hierarchical_sources: list | None = None
+    tracks_per_scale: dict | None = None
+    sources_per_scale: dict | None = None
+    flow_seq_per_scale: dict | None = None
+    detections_per_scale: dict | None = None
+    multi_scale_dets: list | None = None
 
 
 class FlowTracker:
@@ -1339,14 +1413,27 @@ class FlowTracker:
                 "║ ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠘⠛⠋⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀ ║\n"
                 "╚══════════════════════════════╝\n"
             )
-        detections = self.detector.detect(cube, channel_list)
-        return self.run_from_detections(
-            detections,
-            vel_array=vel_array,
-            results_dir=results_dir,
-            plot=plot,
-            verbose=verbose,
-        )
+        detections = self.detector.detect(cube, channel_list, verbose=verbose)
+
+        # Check if multi-scale detection
+        if detections and hasattr(detections[0], 'scales'):
+            # Multi-scale detections (PerChannelScaleDetections)
+            return self.run_from_multi_scale_detections(
+                detections,
+                vel_array=vel_array,
+                results_dir=results_dir,
+                plot=plot,
+                verbose=verbose,
+            )
+        else:
+            # Single-scale detections (ChannelDetection)
+            return self.run_from_detections(
+                detections,
+                vel_array=vel_array,
+                results_dir=results_dir,
+                plot=plot,
+                verbose=verbose,
+            )
 
     def run_from_detections(
         self,
@@ -1401,6 +1488,190 @@ class FlowTracker:
             false_detections=false_dets,
             src_data=src_data,
             src_colors=src_colors,
+        )
+
+    @staticmethod
+    def _multi_scale_to_per_scale_dets(multi_scale_dets: list) -> dict:
+        """Convert list[PerChannelScaleDetections] → {scale: list[ChannelDetection]}."""
+        scales_present = set()
+        for multi_det in multi_scale_dets:
+            scales_present.update(multi_det.scales.keys())
+
+        detections_per_scale = {}
+        for scale in sorted(scales_present):
+            scale_dets = []
+            for multi_det in multi_scale_dets:
+                if scale in multi_det.scales:
+                    masks, peaks, boxes = multi_det.scales[scale]
+                    scale_dets.append(ChannelDetection(
+                        channel=multi_det.channel,
+                        image=multi_det.image,
+                        footprint_masks=masks,
+                        peaks=peaks,
+                        boxes=boxes,
+                        detect_coeffs=multi_det.detect_coeffs,
+                    ))
+            detections_per_scale[scale] = scale_dets
+        return detections_per_scale
+
+    def link_multi_scale(
+        self,
+        detections_per_scale: dict,
+        verbose: bool = False,
+    ) -> tuple[dict, dict]:
+        """Phase 1 — per-scale optical flow + track linking + kinematics.
+
+        Flow is computed exactly once per scale and reused for the forward
+        link, the backward link (split reconciliation), and returned for the
+        GUI.  Each scale's output is logged at the same level of detail as the
+        single-scale pipeline.
+
+        Returns
+        -------
+        (tracks_per_scale, flow_seq_per_scale)
+        """
+        tracks_per_scale = {}
+        flow_seq_per_scale = {}
+        scales_sorted = sorted(detections_per_scale.keys())
+
+        for scale in scales_sorted:
+            dets = detections_per_scale[scale]
+            n_det = sum(len(d.peaks) for d in dets)
+            if verbose:
+                print(f"\n{'='*52}")
+                print(f"  SCALE j={scale}   ({len(dets)} channels, {n_det} detections)")
+                print(f"{'='*52}")
+
+            flow_seq = compute_flow_sequence(dets, verbose=verbose)
+            flow_seq_per_scale[scale] = flow_seq
+
+            tracks = link_tracks(
+                dets, flow_seq,
+                min_match_overlap=self.min_match_overlap,
+                max_gap_channels=self.max_gap_channels,
+                verbose=verbose,
+            )
+            for t in tracks:
+                t['scale'] = scale
+
+            det_rev = list(reversed(dets))
+            flow_rev = [(b, a, -fl, mg) for (a, b, fl, mg) in reversed(flow_seq)]
+            bwd_tracks = link_tracks(
+                det_rev, flow_rev,
+                min_match_overlap=self.min_match_overlap,
+                max_gap_channels=self.max_gap_channels,
+            )
+            _reconcile_splits(tracks, bwd_tracks, verbose=verbose)
+            classify_kinematic(tracks, min_displacement=self.min_displacement, verbose=verbose)
+            tracks_per_scale[scale] = tracks
+
+        return tracks_per_scale, flow_seq_per_scale
+
+    def group_multi_scale(
+        self,
+        multi_scale_dets: list,
+        detections_per_scale: dict,
+        tracks_per_scale: dict,
+        flow_seq_per_scale: dict,
+        vel_array: np.ndarray | None = None,
+        results_dir=None,
+        plot: bool = False,
+        verbose: bool = False,
+    ) -> TrackingResult:
+        """Phase 2 — per-scale source grouping, hierarchy, false-det filtering."""
+        from .hierarchy import build_hierarchical_sources
+
+        # Per-scale source grouping with detailed logging
+        sources_per_scale = {}
+        for scale in sorted(tracks_per_scale.keys()):
+            tracks = tracks_per_scale[scale]
+            sources = group_into_sources(tracks)
+            sources_per_scale[scale] = sources
+            if verbose:
+                n_kin = sum(1 for t in tracks if t.get('kinematic'))
+                n_split = sum(1 for t in tracks if t.get('has_split'))
+                print(f"\n{'='*52}")
+                print(f"  SCALE j={scale}  source grouping")
+                print(f"{'='*52}")
+                print(f"  {len(tracks)} track(s)  ({n_kin} kinematic, "
+                      f"{n_split} with splits)  →  {len(sources)} source(s)")
+                for s in sources:
+                    chs = s['channels']
+                    print(f"    source {s['id']:>2}  "
+                          f"ch {chs[0]}–{chs[-1]} ({len(chs)} ch)  "
+                          f"{len(s['track_ids'])} track(s)")
+
+        # Build hierarchical relationships across scales
+        if verbose:
+            print(f"\n{'='*52}")
+            print(f"  HIERARCHY — linking sources across scales")
+            print(f"{'='*52}")
+        hierarchical_sources, _ = build_hierarchical_sources(
+            multi_scale_dets, tracks_per_scale, sources_per_scale,
+            spatial_overlap_threshold=0.3,
+            velocity_tolerance=10.0,
+            vel_array=vel_array,
+            verbose=verbose,
+        )
+
+        # Flatten for legacy compatibility
+        all_tracks = []
+        for scale_tracks in tracks_per_scale.values():
+            all_tracks.extend(scale_tracks)
+        all_sources = []
+        for scale_sources in sources_per_scale.values():
+            all_sources.extend(scale_sources)
+
+        # False-detection filtering on the finest scale
+        first_scale = min(detections_per_scale.keys())
+        flow_seq = flow_seq_per_scale.get(first_scale) \
+            or compute_flow_sequence(detections_per_scale[first_scale], verbose=False)
+
+        good_sources, false_dets, src_data, src_colors = classify_sources(
+            all_sources, all_tracks, detections_per_scale[first_scale], flow_seq,
+            wav_scale_idx=self.wav_scale_idx,
+            wav_abrupt_thresh=self.wav_abrupt_thresh,
+            flow_iou_thresh=self.flow_iou_thresh,
+            short_det_max=self.short_det_max,
+            verbose=verbose,
+            plot=plot,
+            vel_array=vel_array,
+            results_dir=results_dir,
+        )
+
+        return TrackingResult(
+            detections=[],
+            flow_seq=flow_seq,
+            tracks=all_tracks,
+            sources=good_sources,
+            false_detections=false_dets,
+            src_data=src_data,
+            src_colors=src_colors,
+            hierarchical_sources=hierarchical_sources,
+            tracks_per_scale=tracks_per_scale,
+            sources_per_scale=sources_per_scale,
+            flow_seq_per_scale=flow_seq_per_scale,
+            detections_per_scale=detections_per_scale,
+            multi_scale_dets=multi_scale_dets,
+        )
+
+    def run_from_multi_scale_detections(
+        self,
+        multi_scale_dets: list,
+        vel_array: np.ndarray | None = None,
+        results_dir=None,
+        plot: bool = False,
+        verbose: bool = False,
+    ) -> TrackingResult:
+        """Run the full multi-scale pipeline (phase 1 + phase 2)."""
+        detections_per_scale = self._multi_scale_to_per_scale_dets(multi_scale_dets)
+        tracks_per_scale, flow_seq_per_scale = self.link_multi_scale(
+            detections_per_scale, verbose=verbose)
+        return self.group_multi_scale(
+            multi_scale_dets, detections_per_scale,
+            tracks_per_scale, flow_seq_per_scale,
+            vel_array=vel_array, results_dir=results_dir,
+            plot=plot, verbose=verbose,
         )
 
     def __repr__(self) -> str:

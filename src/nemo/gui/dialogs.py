@@ -1,8 +1,9 @@
 import tkinter as tk
 from tkinter import messagebox
 
+from . import _constants as C
 from ._constants import ACCENT, BG, CARD_BG, DIM
-from .widgets import _FlatBtn
+from .widgets import _FlatBtn, make_slider_box
 
 
 class WaveletParamsDialog(tk.Toplevel):
@@ -156,44 +157,70 @@ class FlowParamsDialog(tk.Toplevel):
 
 
 class FalseDetParamsDialog(tk.Toplevel):
-    """Modal dialog: edit false-detection rejection thresholds."""
+    """Modal dialog: edit false-detection rejection thresholds with sliders."""
 
     def __init__(self, master, on_save, current: dict | None = None):
         super().__init__(master)
+        # Read colours dynamically so the dialog matches the active theme.
+        bg, accent, card_bg, dim = C.BG, C.ACCENT, C.CARD_BG, C.DIM
+        txt = C.STEP_LABEL_TXT
         self.title("False Detection — Parameters")
-        self.configure(bg=BG)
+        self.configure(bg=bg)
         self.resizable(False, False)
         self.grab_set()
         self._on_save = on_save
 
         defaults = dict(wav_abrupt_thresh=0.5, flow_iou_thresh=0.25, short_det_max=8)
         if current:
-            defaults.update(current)
+            for k in defaults:
+                if k in current:
+                    defaults[k] = current[k]
 
-        pad = dict(padx=14, pady=5, sticky="w")
-        tk.Label(self, text="False Detection Rejection", bg=BG, fg=ACCENT,
-                 font=("Helvetica", 12, "bold")).grid(
-                     row=0, column=0, columnspan=2, pady=(14, 8), padx=14)
+        tk.Label(self, text="False Detection Rejection", bg=bg, fg=accent,
+                 font=("Helvetica", 12, "bold")).pack(padx=18, pady=(16, 4),
+                                                      anchor="w")
+        tk.Label(self,
+                 text="A source is flagged as a likely false detection when its wavelet\n"
+                      "flux profile is too abrupt, OR its optical-flow overlap is poor\n"
+                      "while it spans only a few channels. These thresholds control how\n"
+                      "lenient that test is.",
+                 bg=bg, fg=txt, font=("Helvetica", 9),
+                 justify="left").pack(padx=18, pady=(0, 12), anchor="w")
 
-        fields = [
-            ("Wavelet abruptness threshold", "wav_abrupt_thresh"),
-            ("Flow IoU threshold",           "flow_iou_thresh"),
-            ("Short detection max (ch)",     "short_det_max"),
+        # (key, title, description, lo, hi, resolution, kind)
+        specs = [
+            ("wav_abrupt_thresh", "Wavelet abruptness threshold",
+             "Largest allowed jump in a source's wavelet flux between adjacent\n"
+             "channels. Sources that switch on/off more abruptly than this are\n"
+             "rejected. Higher = more lenient (keeps more sources).",
+             0.0, 1.5, 0.05, "float"),
+            ("flow_iou_thresh", "Flow IoU threshold",
+             "Minimum overlap (intersection-over-union) between the optical-flow-\n"
+             "predicted mask and the actually detected mask. Short sources below\n"
+             "this overlap are treated as untracked. Lower = more lenient.",
+             0.0, 1.0, 0.05, "float"),
+            ("short_det_max", "Short-detection length (channels)",
+             "Sources spanning fewer channels than this must also pass the flow-\n"
+             "overlap test above; longer sources are always kept. Lower = more\n"
+             "lenient (fewer sources scrutinised).",
+             1, 30, 1, "int"),
         ]
-        self._vars: dict[str, tk.StringVar] = {}
-        for r, (label, key) in enumerate(fields, start=1):
-            tk.Label(self, text=label, bg=BG, fg="white",
-                     font=("Helvetica", 9), anchor="w").grid(row=r, column=0, **pad)
-            v = tk.StringVar(value=str(defaults[key]))
-            tk.Entry(self, textvariable=v, width=8, bg=CARD_BG, fg="white",
-                     insertbackground="white", relief=tk.FLAT,
-                     highlightthickness=0).grid(row=r, column=1, padx=14, pady=5, sticky="w")
-            self._vars[key] = v
+        self._sliders: dict[str, tuple] = {}
+        for key, name, desc, lo, hi, res, kind in specs:
+            fr = tk.Frame(self, bg=bg)
+            fr.pack(fill=tk.X, padx=18, pady=(0, 12))
+            tk.Label(fr, text=name, bg=bg, fg=accent,
+                     font=("Helvetica", 10, "bold"), anchor="w").pack(fill=tk.X)
+            tk.Label(fr, text=desc, bg=bg, fg=txt, font=("Helvetica", 8),
+                     justify="left", anchor="w").pack(fill=tk.X)
+            parts = make_slider_box(fr, lo, hi, res, kind, defaults[key], height=26)
+            parts["outer"].pack(fill=tk.X, pady=(4, 0))
+            self._sliders[key] = (parts, kind)
 
-        btn_row = tk.Frame(self, bg=BG)
-        btn_row.grid(row=len(fields)+1, column=0, columnspan=2, pady=(12, 14))
-        _FlatBtn(btn_row, "Cancel", self.destroy, bg_on=DIM,    active=True).pack(side=tk.LEFT, padx=6)
-        _FlatBtn(btn_row, "Save",   self._save,   bg_on=ACCENT, active=True).pack(side=tk.LEFT, padx=6)
+        btn_row = tk.Frame(self, bg=bg)
+        btn_row.pack(pady=(6, 16))
+        _FlatBtn(btn_row, "Cancel", self.destroy, bg_on=dim,    active=True).pack(side=tk.LEFT, padx=6)
+        _FlatBtn(btn_row, "Save",   self._save,   bg_on=accent, active=True).pack(side=tk.LEFT, padx=6)
 
         self.transient(master)
         self.wait_visibility()
@@ -203,15 +230,9 @@ class FalseDetParamsDialog(tk.Toplevel):
         self.geometry(f"+{px}+{py}")
 
     def _save(self):
-        try:
-            params = dict(
-                wav_abrupt_thresh=float(self._vars["wav_abrupt_thresh"].get()),
-                flow_iou_thresh=float(self._vars["flow_iou_thresh"].get()),
-                short_det_max=int(self._vars["short_det_max"].get()),
-            )
-        except ValueError as exc:
-            messagebox.showerror("Bad parameter", str(exc), parent=self)
-            return
+        params = {key: (int(round(parts["get"]())) if kind == "int"
+                        else float(parts["get"]()))
+                  for key, (parts, kind) in self._sliders.items()}
         self._on_save(params)
         self.destroy()
 

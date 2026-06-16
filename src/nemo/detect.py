@@ -238,8 +238,10 @@ def wavelet_footprints(
     min_area :
         Minimum component area in pixels; smaller components are discarded as artefacts.
     thresh :
-        Absolute lower bound on the detection-plane value.  ``None`` (default)
-        sets it to 10 % of the detection-plane maximum.
+        Detection threshold as a *fraction* of the per-scale peak wavelet
+        coefficient (e.g. 0.1 keeps coefficients above 10 % of that scale's
+        maximum).  ``None`` (default) uses 0.1.  Defined without any noise
+        model, so it is well-posed for noise-free data.
     sigma_per_scale :
         Pre-computed per-scale noise array, shape (scales-1,).  When provided,
         these values replace the per-channel MAD estimate so that the threshold
@@ -273,22 +275,31 @@ def wavelet_footprints(
     detect[-1] = coeffs[-1]   # coarse residual kept as-is
     detect[detect < 0] = 0    # positive emission only
 
-    scale_idx = int(np.clip(use_scale - 1, 0, detect.shape[0] - 1))
-    plane = detect[scale_idx]
-
-    # 10 % of peak prevents float32 rounding artefacts (~1e-7) from
-    # triggering detections when a signal-free channel makes sigma → 0.
-    effective_thresh = 0.1 * float(plane.max()) if thresh is None else thresh
-    binary           = plane > effective_thresh
+    # Detection threshold combines (1) a fraction (alpha = thresh) of the
+    # per-scale peak coefficient — noise-model-free, ideal for noise-free data —
+    # and (2) an optional per-scale noise gate (k_sigma · σ) for noisy cubes,
+    # active only when k_sigma > 0.
+    scale_idx = int(np.clip(use_scale - 1, 0, coeffs.shape[0] - 1))
+    band  = np.clip(coeffs[scale_idx], 0.0, None)   # positive coefficients
+    alpha = 0.1 if thresh is None else float(thresh)
+    effective_thresh = alpha * float(band.max())
+    binary           = band > effective_thresh
+    if k_sigma is not None and k_sigma > 0:
+        if sigma_per_scale is not None:
+            sig = float(sigma_per_scale[scale_idx]) + 1e-12
+        else:
+            cj = coeffs[scale_idx]
+            sig = 1.4826 * np.median(np.abs(cj - np.median(cj))) + 1e-12
+        binary &= band > (k_sigma * sig)
     labeled, _       = label(binary)
     regions = [
-        r for r in regionprops(labeled, intensity_image=plane) if r.area >= min_area
+        r for r in regionprops(labeled, intensity_image=band) if r.area >= min_area
     ]
 
     peaks, footprint_masks, boxes = [], [], []
     for r in regions:
         y0, x0, y1, x1 = r.bbox
-        patch = plane[y0:y1, x0:x1]
+        patch = band[y0:y1, x0:x1]
         if patch.size == 0:
             continue
         py, px = np.unravel_index(np.argmax(patch), patch.shape)
@@ -397,6 +408,151 @@ def detect_cube_per_channel(
 
 
 # ---------------------------------------------------------------------------
+# Multi-scale detection
+# ---------------------------------------------------------------------------
+
+def detect_all_scales(
+    cube: np.ndarray,
+    channel_list: list[int] | None = None,
+    scales: int = 6,
+    k_sigma: float = 5.0,
+    detect_scales: list[int] | None = None,
+    min_area: int = 10,
+    thresh: float | None = None,
+    use_mean_map_sigma: bool = True,
+    verbose: bool = False,
+):
+    """Detect sources at multiple wavelet scales per channel.
+
+    Parameters
+    ----------
+    cube : (n_ch, H, W) float32
+    detect_scales : list of int or None
+        1-based scale indices to detect at. None → [1,2,3,4] (skip residual).
+    """
+    from .hierarchy import PerChannelScaleDetections
+
+    if detect_scales is None:
+        detect_scales = list(range(1, min(scales, 5)))
+    if channel_list is None:
+        channel_list = list(range(cube.shape[0]))
+
+    # Compute global noise reference
+    sigma_ref = None
+    if use_mean_map_sigma:
+        sigma_ref = reference_sigmas_from_mean_map(
+            cube, channel_list, scales
+        )
+
+    if verbose:
+        print(f"[detect_all_scales] cube {cube.shape}  "
+              f"range [{cube.min():.3e}, {cube.max():.3e}]")
+        print(f"  scales={scales}  k_sigma={k_sigma}  detect_scales={detect_scales}  "
+              f"min_area={min_area}  thresh={thresh}  "
+              f"use_mean_map_sigma={use_mean_map_sigma}")
+        print(f"  Processing {len(channel_list)} channels: "
+              f"{channel_list[0]}–{channel_list[-1]}")
+        if sigma_ref is not None:
+            print(f"  Mean-map per-scale σ: "
+                  + "  ".join(f"s{i+1}={sigma_ref[i]:.3e}"
+                              for i in range(len(sigma_ref))))
+
+    # Per-scale tallies for the closing per-scale sections
+    per_scale_total = {s: 0 for s in detect_scales}
+    per_scale_chans = {s: 0 for s in detect_scales}
+    per_scale_ch_n  = {s: [] for s in detect_scales}  # [(ch, n_det), ...]
+
+    results = []
+    for ch in channel_list:
+        img = cube[ch].astype(np.float32)
+        coeffs = starlet_transform(img, scales=scales)
+
+        # Per-scale noise σ (for the optional noise gate on noisy cubes)
+        detect = np.zeros_like(coeffs)
+        sigma_per_scale = []
+        for i in range(coeffs.shape[0] - 1):
+            if sigma_ref is not None:
+                sigma_i = float(sigma_ref[i]) + 1e-12
+            else:
+                sigma_i = 1.4826 * np.median(np.abs(coeffs[i] - np.median(coeffs[i]))) + 1e-12
+            sigma_per_scale.append(sigma_i)
+            detect[i] = np.where(np.abs(coeffs[i]) > k_sigma * sigma_i, coeffs[i], 0.0)
+        detect[-1] = coeffs[-1]
+        detect[detect < 0] = 0
+
+        # Detection threshold per scale combines two independent criteria:
+        #   (1) fraction of the scale's peak coefficient:  w > alpha · max(w)
+        #       (alpha = `thresh`) — noise-model-free, ideal for noise-free data;
+        #   (2) optional noise gate for noisy cubes:  w > k_sigma · σ_scale
+        #       (active only when k_sigma > 0; set k_sigma = 0 to disable).
+        alpha = 0.1 if thresh is None else float(thresh)
+        use_noise_gate = (k_sigma is not None) and (k_sigma > 0)
+        scale_dets = {}
+        for scale_idx in detect_scales:
+            plane_idx = int(np.clip(scale_idx - 1, 0, coeffs.shape[0] - 1))
+            band = np.clip(coeffs[plane_idx], 0.0, None)   # positive coefficients
+
+            effective_thresh = alpha * float(band.max())
+            binary = band > effective_thresh
+            if use_noise_gate and plane_idx < len(sigma_per_scale):
+                binary &= band > (k_sigma * sigma_per_scale[plane_idx])
+            labeled, _ = label(binary)
+            regions = [
+                r for r in regionprops(labeled, intensity_image=band)
+                if r.area >= min_area
+            ]
+
+            peaks, masks, boxes = [], [], []
+            for r in regions:
+                y0, x0, y1, x1 = r.bbox
+                patch = band[y0:y1, x0:x1]
+                if patch.size == 0:
+                    continue
+                py, px = np.unravel_index(np.argmax(patch), patch.shape)
+                peaks.append((int(y0 + py), int(x0 + px)))
+                masks.append((labeled == r.label).astype(bool))
+                boxes.append((y0, x0, y1, x1))
+
+            scale_dets[scale_idx] = (masks, peaks, boxes)
+            n_det = len(peaks)
+            per_scale_total[scale_idx] += n_det
+            per_scale_ch_n[scale_idx].append((ch, n_det))
+            if n_det:
+                per_scale_chans[scale_idx] += 1
+
+        # Stream a per-channel line as each channel is processed, so the log
+        # fills in progressively during the (slow) detection pass.
+        if verbose:
+            counts = "  ".join(f"j{s}:{len(scale_dets[s][1]):>2}" for s in detect_scales)
+            print(f"  ch {ch:4d}   {counts}")
+
+        results.append(PerChannelScaleDetections(
+            channel=ch,
+            image=img,
+            scales={s: scale_dets[s] for s in detect_scales},
+            detect_coeffs=detect,
+        ))
+
+    if verbose:
+        n_ch = len(channel_list)
+        coarsest = max(detect_scales)
+        # Comprehensive per-scale summary for each chosen scale
+        for s in detect_scales:
+            label_s = "coarsest" if s == coarsest else "detail"
+            ch_n = per_scale_ch_n[s]
+            peak_ch, peak_n = (max(ch_n, key=lambda t: t[1]) if ch_n
+                               else (channel_list[0], 0))
+            print(f"\n  SCALE j={s} ({label_s}):  "
+                  f"{per_scale_total[s]} detection(s)  |  "
+                  f"{per_scale_chans[s]}/{n_ch} channels with dets  |  "
+                  f"peak ch {peak_ch} ({peak_n})")
+
+        print(f"\n[detect_all_scales] Done — {n_ch} channels, scales {detect_scales}.")
+
+    return results
+
+
+# ---------------------------------------------------------------------------
 # WaveletDetector — class-based API
 # ---------------------------------------------------------------------------
 
@@ -435,6 +591,8 @@ class WaveletDetector:
         min_area: int = 20,
         thresh: float | None = None,
         use_mean_map_sigma: bool = True,
+        detect_all_scales: bool = False,
+        detect_scales: list[int] | None = None,
     ) -> None:
         self.scales = scales
         self.k_sigma = k_sigma
@@ -442,13 +600,15 @@ class WaveletDetector:
         self.min_area = min_area
         self.thresh = thresh
         self.use_mean_map_sigma = use_mean_map_sigma
+        self.detect_all_scales = detect_all_scales
+        self.detect_scales = detect_scales if detect_scales is not None else list(range(1, min(scales, 5)))
 
     def detect(
         self,
         cube: np.ndarray,
         channel_list: list[int] | None = None,
         verbose: bool = False,
-    ) -> list[ChannelDetection]:
+    ):
         """Run per-channel wavelet detection on *cube*.
 
         Parameters
@@ -461,20 +621,35 @@ class WaveletDetector:
 
         Returns
         -------
-        list[ChannelDetection]
+        list[ChannelDetection] (single-scale) or list[PerChannelScaleDetections] (multi-scale)
             One entry per channel in *channel_list*, in order.
         """
-        return detect_cube_per_channel(
-            cube,
-            channel_list=channel_list,
-            scales=self.scales,
-            k_sigma=self.k_sigma,
-            use_scale=self.use_scale,
-            min_area=self.min_area,
-            thresh=self.thresh,
-            use_mean_map_sigma=self.use_mean_map_sigma,
-            verbose=verbose,
-        )
+        if not self.detect_all_scales:
+            # Legacy single-scale detection
+            return detect_cube_per_channel(
+                cube,
+                channel_list=channel_list,
+                scales=self.scales,
+                k_sigma=self.k_sigma,
+                use_scale=self.use_scale,
+                min_area=self.min_area,
+                thresh=self.thresh,
+                use_mean_map_sigma=self.use_mean_map_sigma,
+                verbose=verbose,
+            )
+        else:
+            # Multi-scale detection
+            return detect_all_scales(
+                cube,
+                channel_list=channel_list,
+                scales=self.scales,
+                k_sigma=self.k_sigma,
+                detect_scales=self.detect_scales,
+                min_area=self.min_area,
+                thresh=self.thresh,
+                use_mean_map_sigma=self.use_mean_map_sigma,
+                verbose=verbose,
+            )
 
     def __repr__(self) -> str:
         return (

@@ -1,23 +1,24 @@
 from pathlib import Path
 
-BG          = "#1a1a2e"
-CARD_BG     = "#16213e"
-CARD_OFF    = "#0f0f1a"
-ACCENT      = "#3ee0b1"  # Active button color — must match DARK_THEME["ACCENT"]
-CARD_BORDER = "#1a6060"
-DIM         = "#44445a"
-DIM_TXT     = "#555577"
-LOG_BG      = "#0a0a14"
-LOG_TXT     = "#4ecca3"  # Log text color — independent from ACCENT
-BUTTON_BG   = "#0f0f1a"  # Disabled button background — tune in LIGHT_THEME (must match DARK_THEME)
-BUTTON_TXT  = "#3a3a4a"  # Disabled button text — tune in LIGHT_THEME (must match DARK_THEME)
-PLACEHOLDER_TXT = "#666699"
-PLACEHOLDER_BG_EN = "#2a2a4a"
-PLACEHOLDER_BG_DIS = "#111128"
-STEP_LABEL_TXT = "#b0b5d0"
-STEP_LABEL_DIS = "#555577"
-BANNER_BTN_TXT = "#e0e0e8"
-BANNER_BTN_HOVER = "#2a2a4a"
+BG          = "#0a0a0f"
+CARD_BG     = "#1a1a25"
+CARD_OFF    = "#151519"
+ACCENT      = "#90caf9"  # Active button color — light blue, must match DARK_THEME["ACCENT"]
+ACCENT_HOVER = "#aad4fb"  # Slider marker hover — slightly lighter than ACCENT
+CARD_BORDER = "#1d3650"  # Super faint accent (light blue) — must match DARK_THEME
+DIM         = "#2a2a35"
+DIM_TXT     = "#4a4a5a"
+LOG_BG      = "#000000"
+LOG_TXT     = "#90caf8"  # Log text color — must match DARK_THEME["LOG_TXT"]
+BUTTON_BG   = "#080809"  # Disabled button background — must match DARK_THEME
+BUTTON_TXT  = "#2a2a36"  # Disabled button text — must match DARK_THEME
+PLACEHOLDER_TXT = "#5a5a7a"
+PLACEHOLDER_BG_EN = "#131b26"
+PLACEHOLDER_BG_DIS = "#0a0a10"
+STEP_LABEL_TXT = "#a0a0c0"
+STEP_LABEL_DIS = "#4a4a5b"
+BANNER_BTN_TXT = "#d0d0e0"
+BANNER_BTN_HOVER = "#1a1a26"
 CARD_W      = 270
 CARD_H      = 270
 BANNER_W    = 80
@@ -32,28 +33,30 @@ _ASSETS = Path(__file__).parent.parent.parent.parent / "assets"
 _CMAPS = ["inferno", "viridis", "magma", "plasma", "cividis",
           "gray", "hot", "afmhot", "YlOrRd", "cubehelix"]
 
+# NOTE: theme switching remaps colors BY VALUE, so every value within each
+# theme dict must be unique (hence the ±1 hex nudges on near-identical greys).
 DARK_THEME = {
-    "BG": "#1a1a2e", "CARD_BG": "#16213e", "CARD_OFF": "#0f0f1a",
-    "ACCENT": "#3ee0b1", "CARD_BORDER": "#1a6060", "DIM": "#44445a",  # Load/View button color
-    "DIM_TXT": "#555577", "RUN_COLOR": "#f5a623",
-    "LOG_BG": "#0a0a14", "LOG_TXT": "#4ecca3",  # Log text color — independent from ACCENT
-    "BUTTON_BG": "#0f0f1a", "BUTTON_TXT": "#3a3a4a",  # Heavily faded for disabled cards
-    "PLACEHOLDER_TXT": "#666699",
-    "PLACEHOLDER_BG_EN": "#2a2a4a", "PLACEHOLDER_BG_DIS": "#111128",
-    "STEP_LABEL_TXT": "#b0b5d0", "STEP_LABEL_DIS": "#555577",
-    "BANNER_BTN_TXT": "#e0e0e8", "BANNER_BTN_HOVER": "#2a2a4a",
+    "BG": "#0a0a0f", "CARD_BG": "#1a1a25", "CARD_OFF": "#151519",
+    "ACCENT": "#90caf9", "ACCENT_HOVER": "#aad4fb", "CARD_BORDER": "#1d3650", "DIM": "#2a2a35",  # border = super faint accent
+    "DIM_TXT": "#4a4a5a", "RUN_COLOR": "#f5a623",
+    "LOG_BG": "#000000", "LOG_TXT": "#90caf8",  # Log text color — visually matches ACCENT
+    "BUTTON_BG": "#080809", "BUTTON_TXT": "#2a2a36",  # Heavily faded for disabled cards
+    "PLACEHOLDER_TXT": "#5a5a7a",
+    "PLACEHOLDER_BG_EN": "#131b26", "PLACEHOLDER_BG_DIS": "#0a0a10",
+    "STEP_LABEL_TXT": "#a0a0c0", "STEP_LABEL_DIS": "#4a4a5b",
+    "BANNER_BTN_TXT": "#d0d0e0", "BANNER_BTN_HOVER": "#1a1a26",
 }
 
 LIGHT_THEME = {
     "BG": "#f5f5fa", "CARD_BG": "#ffffff", "CARD_OFF": "#f0f0f5",
-    "ACCENT": "#d2e5d9", "CARD_BORDER": "#2a9090", "DIM": "#e8e8f0",  # Light green for Load/View buttons
+    "ACCENT": "#1a3a7a", "ACCENT_HOVER": "#2a4f9e", "CARD_BORDER": "#ccd6ea", "DIM": "#e8e8f0",  # border = super faint accent
     "DIM_TXT": "#b0b0c0", "RUN_COLOR": "#ffdba0",
-    "LOG_BG": "#fafafd", "LOG_TXT": "#1a5a4a",
-    "BUTTON_BG": "#f0f0f5", "BUTTON_TXT": "#dcdce0",  # Heavily faded for disabled cards
+    "LOG_BG": "#fafafd", "LOG_TXT": "#1a3a7b",  # visually matches light ACCENT
+    "BUTTON_BG": "#f0f0f6", "BUTTON_TXT": "#dcdce0",  # Heavily faded for disabled cards
     "PLACEHOLDER_TXT": "#9999bb",
-    "PLACEHOLDER_BG_EN": "#e8e8f5", "PLACEHOLDER_BG_DIS": "#f5f5fa",
+    "PLACEHOLDER_BG_EN": "#e3e6f0", "PLACEHOLDER_BG_DIS": "#f5f5fb",
     "STEP_LABEL_TXT": "#6a6a8a", "STEP_LABEL_DIS": "#aaaacc",
-    "BANNER_BTN_TXT": "#2a2a4a", "BANNER_BTN_HOVER": "#e8e8f0",
+    "BANNER_BTN_TXT": "#2a2a4a", "BANNER_BTN_HOVER": "#e8e8f1",
 }
 
 _DARK_TO_LIGHT = {v.lower(): LIGHT_THEME[k] for k, v in DARK_THEME.items()}

@@ -14,8 +14,8 @@ from matplotlib.patches import Ellipse
 
 from . import _constants as C
 from ._constants import (CARD_W, CARD_H, BTN_W, BTN_H, BTN_ZONE_H, BTN_TALL)
-from .widgets import _FlatBtn, _QueueStream
-from .dialogs import WaveletParamsDialog, FlowParamsDialog, ScalingDialog, FalseDetParamsDialog
+from .widgets import _FlatBtn, _QueueStream, make_slider_box
+from .dialogs import WaveletParamsDialog, FalseDetParamsDialog
 from .viewers import SliceViewer, ScaleViewer
 from .analysis import CombinedAnalysisWindow, IndividualAnalysisWindow, _source_colors
 from .loaders import load_cube_file, _moment0, _apply_scaling
@@ -67,6 +67,41 @@ def _build_wavelet_frames(cube: np.ndarray, detections: list,
         H, W = cube.shape[1], cube.shape[2]
         _draw_beam(ax, H, W, beam, pixscale, light)
         frames[d.channel] = _frame_to_pil(fig, dpi)
+    return frames
+
+
+def _build_multi_scale_frames(cube: np.ndarray, multi_scale_dets: list,
+                              beam=None, pixscale=None) -> dict:
+    """Build preview frames from multi-scale detections with opacity-graded contours."""
+    norm = _cube_norm(cube)
+    dpi  = 72;  fsz = CARD_W / dpi
+    light = C._current_theme == "light"
+    cmap  = "cubehelix_r" if light else "inferno"
+    cv    = 0.0 if light else 1.0  # black / white contour base
+
+    all_scales = sorted({s for sd in multi_scale_dets for s in sd.scales.keys()})
+    n = len(all_scales)
+
+    def _alpha(scale_idx):
+        rank = all_scales.index(scale_idx)
+        return 0.95 if n <= 1 else 0.95 - rank * 0.70 / (n - 1)
+
+    frames: dict = {}
+    H, W = cube.shape[1], cube.shape[2]
+    for sd in multi_scale_dets:
+        fig = plt.Figure(figsize=(fsz, fsz), dpi=dpi, facecolor="#0a0a14")
+        ax  = fig.add_axes([0, 0, 1, 1]);  ax.set_axis_off()
+        ax.imshow(cube[sd.channel], cmap=cmap, norm=norm, origin="lower")
+        for scale_idx in all_scales:
+            if scale_idx not in sd.scales:
+                continue
+            masks, _, _ = sd.scales[scale_idx]
+            a = _alpha(scale_idx)
+            for mask in masks:
+                ax.contour(mask.astype(float), [0.5],
+                           colors=[[cv, cv, cv, a]], linewidths=0.6)
+        _draw_beam(ax, H, W, beam, pixscale, light)
+        frames[sd.channel] = _frame_to_pil(fig, dpi)
     return frames
 
 
@@ -220,6 +255,150 @@ def _build_sources_frames(cube: np.ndarray, tracks: list, sources: list,
     return frames
 
 
+def _scale_alpha(scale, all_scales):
+    """White-contour opacity: finest scale opaque, coarsest faint."""
+    n = len(all_scales)
+    if n <= 1:
+        return 0.95
+    rank = sorted(all_scales).index(scale)
+    return 0.95 - rank * 0.70 / (n - 1)
+
+
+def _build_multi_scale_flow_frames(cube, flow_seq_per_scale, detections_per_scale,
+                                   coarsest_scale, beam=None, pixscale=None) -> dict:
+    """Flow GIF: per-scale footprint contours (graded opacity) for every scale,
+    quiver arrows only for the *coarsest* scale."""
+    norm  = _cube_norm(cube)
+    dpi   = 72;  fsz = CARD_W / dpi
+    light = C._current_theme == "light"
+    cmap  = "cubehelix_r" if light else "inferno"
+    cv    = 0.0 if light else 1.0
+    _qcmap = "cool" if not light else "viridis"
+    H, W  = cube.shape[1], cube.shape[2]
+    qs    = max(min(H, W) // 28, 2)
+    all_scales = sorted(detections_per_scale.keys())
+
+    # per-scale {channel: detection} lookup
+    det_by_scale_ch = {s: {d.channel: d for d in dets}
+                       for s, dets in detections_per_scale.items()}
+    # coarsest flow {ch_ref: flow}
+    coarse_flow = {cr: fl for cr, _ct, fl, _m in flow_seq_per_scale.get(coarsest_scale, [])}
+
+    channels = sorted({cr for fseq in flow_seq_per_scale.values() for cr, *_ in fseq})
+    frames: dict = {}
+    for ch in channels:
+        fig = plt.Figure(figsize=(fsz, fsz), dpi=dpi, facecolor="#0a0a14")
+        ax  = fig.add_axes([0, 0, 1, 1]);  ax.set_axis_off()
+        ax.imshow(cube[ch], cmap=cmap, norm=norm, origin="lower")
+
+        # arrows for coarsest scale only
+        flow = coarse_flow.get(ch)
+        if flow is not None:
+            ys = np.arange(0, H, qs);  xs = np.arange(0, W, qs)
+            Xq, Yq = np.meshgrid(xs, ys)
+            u = flow[1][ys[:, None], xs[None, :]].ravel()
+            v = flow[0][ys[:, None], xs[None, :]].ravel()
+            mag = np.hypot(u, v);  pk = float(mag.max())
+            if pk > 1e-6:
+                sc = qs * 0.9 / pk
+                ax.quiver(Xq.ravel(), Yq.ravel(), u*sc, v*sc, mag, cmap=_qcmap,
+                          angles="xy", scale_units="xy", scale=1,
+                          width=0.003, headwidth=3, alpha=0.85, clim=(0, pk))
+
+        # footprint contours for every scale, graded opacity
+        for scale in all_scales:
+            d = det_by_scale_ch.get(scale, {}).get(ch)
+            if not d:
+                continue
+            a = _scale_alpha(scale, all_scales)
+            for mask in d.footprint_masks:
+                ax.contour(mask.astype(float), [0.5],
+                           colors=[[cv, cv, cv, a]], linewidths=0.5)
+        _draw_beam(ax, H, W, beam, pixscale, light)
+        frames[ch] = _frame_to_pil(fig, dpi)
+    return frames
+
+
+def _hsrc_channel_masks(hierarchical_sources, tracks_per_scale):
+    """Return {h_id: {channel: [mask, ...]}} for every hierarchical source."""
+    tracks_by_scale_id = {}
+    for scale, tracks in tracks_per_scale.items():
+        for t in tracks:
+            tracks_by_scale_id[(scale, t['id'])] = t
+    out = {}
+    for h in hierarchical_sources:
+        ch_dict: dict = {}
+        for tid in h.track_ids:
+            t = tracks_by_scale_id.get((h.scale, tid))
+            if not t:
+                continue
+            for ch, m in t['masks'].items():
+                ch_dict.setdefault(ch, []).append(m)
+        out[h.id] = ch_dict
+    return out
+
+
+def _build_hierarchical_sources_frames(cube, hierarchical_sources, tracks_per_scale,
+                                       multi_scale_dets, beam=None, pixscale=None) -> dict:
+    """Sources GIF: each tree one colour, per-scale opacity (coarse faint,
+    leaves bright); bounding box only around the largest (root) contour."""
+    from matplotlib.patches import Rectangle as _Rect
+    from ..hierarchy import assign_tree_colors, assign_tree_names
+
+    if not hierarchical_sources:
+        return {}
+    norm  = _cube_norm(cube)
+    dpi   = 72;  fsz = CARD_W / dpi
+    light = C._current_theme == "light"
+    cmap  = "cubehelix_r" if light else "inferno"
+    H, W  = cube.shape[1], cube.shape[2]
+    PAD_BB = 4
+
+    colors   = assign_tree_colors(hierarchical_sources)
+    names    = assign_tree_names(hierarchical_sources)
+    h_by_id  = {h.id: h for h in hierarchical_sources}
+    ch_masks = _hsrc_channel_masks(hierarchical_sources, tracks_per_scale)
+
+    all_channels = sorted({ch for d in ch_masks.values() for ch in d})
+    frames: dict = {}
+    for ch in all_channels:
+        fig = plt.Figure(figsize=(fsz, fsz), dpi=dpi, facecolor="#0a0a14")
+        ax  = fig.add_axes([0, 0, 1, 1]);  ax.set_axis_off()
+        ax.imshow(cube[ch], cmap=cmap, norm=norm, origin="lower")
+
+        for h_id, ch_dict in ch_masks.items():
+            masks = ch_dict.get(ch)
+            if not masks:
+                continue
+            (r, g, b), alpha = colors[h_id]
+            is_root = h_by_id[h_id].is_root()
+            for mask in masks:
+                ax.contour(mask.astype(float), [0.5],
+                           colors=[[r, g, b, alpha]], linewidths=0.8)
+            if is_root:  # bbox only around the largest (root) contour
+                union = np.zeros((H, W), dtype=bool)
+                for m in masks:
+                    union |= m
+                rows, cols = np.where(union)
+                if len(rows):
+                    r0, r1 = int(rows.min()), int(rows.max())
+                    c0, c1 = int(cols.min()), int(cols.max())
+                    ax.add_patch(_Rect(
+                        (c0 - PAD_BB, r0 - PAD_BB),
+                        c1 - c0 + 2*PAD_BB, r1 - r0 + 2*PAD_BB,
+                        linewidth=0.9, edgecolor=(r, g, b, 0.9),
+                        facecolor="none", zorder=4))
+                    ax.text(c1 + PAD_BB, r1 + PAD_BB, names[h_id],
+                            ha="center", va="center", fontsize=6,
+                            color="black", fontweight="bold",
+                            bbox=dict(boxstyle="round,pad=0.2",
+                                      fc=(r, g, b), ec=(r, g, b), lw=1.0),
+                            zorder=6)
+        _draw_beam(ax, H, W, beam, pixscale, light)
+        frames[ch] = _frame_to_pil(fig, dpi)
+    return frames
+
+
 # ---------------------------------------------------------------------------
 # CubeCard
 # ---------------------------------------------------------------------------
@@ -245,11 +424,13 @@ class CubeCard(tk.Frame):
         self.beam         = None
         self.pixscale     = None
         self.kpc_per_pix  = None
-        self.detections    = None
-        self.flow_seq      = None
+        self.detections        = None
+        self._multi_scale_dets = []
+        self.flow_seq          = None
         self._wav_params   = None
         self._flow_params      = None
         self._false_det_params = None
+        self._multi_scale_enabled = tk.BooleanVar(value=True)  # Default enabled
         self._on_loaded    = on_loaded
         self._gif_frames   = []
         self._gif_idx      = 0
@@ -264,9 +445,21 @@ class CubeCard(tk.Frame):
 
         bg = C.CARD_BG if active else C.CARD_OFF
 
-        self._preview_frame = tk.Frame(self, bg=bg, width=CARD_W, height=CARD_H)
+        # Horizontal body: button column on the left, preview square right
+        self._body = tk.Frame(self, bg=bg)
+        self._body.pack(padx=8, pady=8)
+
+        self._btn_zone = tk.Frame(self._body, bg=bg, width=BTN_W + 12)
+        self._btn_zone.pack_propagate(False)
+        self._btn_zone.pack(side=tk.LEFT, fill=tk.Y, padx=(0, 8))
+
+        self._right_col = tk.Frame(self._body, bg=bg)
+        self._right_col.pack(side=tk.LEFT)
+
+        self._preview_frame = tk.Frame(self._right_col, bg=bg,
+                                       width=CARD_W, height=CARD_H)
         self._preview_frame.pack_propagate(False)
-        self._preview_frame.pack(padx=8, pady=(8, 4))
+        self._preview_frame.pack()
         self._draw_placeholder()
 
         self._toggle_btn = tk.Label(
@@ -277,14 +470,10 @@ class CubeCard(tk.Frame):
         )
         self._toggle_btn.bind("<Button-1>", lambda _e: self._toggle_view())
 
-        self._step_label = tk.Label(self, text=name, bg=bg,
+        self._step_label = tk.Label(self._right_col, text=name, bg=bg,
                                     fg=C.STEP_LABEL_TXT if active else C.STEP_LABEL_DIS,
                                     font=("Helvetica", 9, "bold"))
-        self._step_label.pack(pady=(0, 4))
-
-        self._btn_zone = tk.Frame(self, bg=bg, height=BTN_ZONE_H)
-        self._btn_zone.pack_propagate(False)
-        self._btn_zone.pack(fill=tk.X, padx=8, pady=(0, 8))
+        self._step_label.pack(pady=(4, 0))
 
         if   index == 0: self._build_buttons_step0(bg, active)
         elif index == 1: self._build_buttons_step1(bg, active)
@@ -296,97 +485,375 @@ class CubeCard(tk.Frame):
     # Button layouts
     # ------------------------------------------------------------------ #
 
-    def _build_buttons_step0(self, bg: str, active: bool):
-        row1 = tk.Frame(self._btn_zone, bg=bg)
-        row1.pack(pady=(4, 3))
-        self.btn_load     = _FlatBtn(row1, "Load Cube",     self._load_cube,    bg_on=C.ACCENT, active=active, height=BTN_TALL)
-        self.btn_view     = _FlatBtn(row1, "View Slice",    self._view_slice,   bg_on=C.ACCENT, active=False,  height=BTN_TALL)
-        self.btn_load.pack(side=tk.LEFT, padx=3)
-        self.btn_view.pack(side=tk.LEFT, padx=3)
+    @staticmethod
+    def _stack_height(n: int, gap: int = 6) -> int:
+        """Button height so a column of *n* buttons spans the preview square."""
+        return (CARD_H - (n - 1) * gap) // n
 
-        row2 = tk.Frame(self._btn_zone, bg=bg)
-        row2.pack()
-        self.btn_spectrum = _FlatBtn(row2, "View Spectrum", self._view_spectrum, bg_on=C.ACCENT, active=False, height=BTN_TALL)
-        self.btn_scaling  = _FlatBtn(row2, "Scaling",       self._open_scaling,  bg_on=C.ACCENT, active=False, height=BTN_TALL)
-        self.btn_spectrum.pack(side=tk.LEFT, padx=3)
-        self.btn_scaling.pack(side=tk.LEFT, padx=3)
+    @staticmethod
+    def _stack(buttons, gap: int = 6):
+        for i, b in enumerate(buttons):
+            b.pack(side=tk.TOP, pady=(0, gap if i < len(buttons) - 1 else 0))
+
+    def _build_buttons_step0(self, bg: str, active: bool):
+        # Fixed-height column spanning the preview square, so the bottom of the
+        # gamma box lines up exactly with the bottom of the square.
+        col = tk.Frame(self._btn_zone, bg=bg, width=BTN_W, height=CARD_H)
+        col.pack_propagate(False)
+        col.pack(side=tk.TOP, anchor="n")
+        self._scl_col = col
+
+        BTN_H0 = 60
+        self.btn_load = _FlatBtn(col, "Load Cube", self._load_cube,
+                                 bg_on=C.ACCENT, active=active, height=BTN_H0)
+        self.btn_view = _FlatBtn(col, "View Slice", self._view_slice,
+                                 bg_on=C.ACCENT, active=False, height=BTN_H0)
+        self.btn_load.pack(side=tk.TOP, pady=(0, 6))
+        self.btn_view.pack(side=tk.TOP, pady=(0, 6))
+        self._build_scaling_controls(col, bg, active)
+
+    # ------------------------------------------------------------------ #
+    # Card-level cube scaling (Linear / Log / Power + gamma)
+    # ------------------------------------------------------------------ #
+
+    def _build_scaling_controls(self, parent, bg: str, active: bool):
+        from tkinter import font as tkfont
+        self._scl_active = active
+        self._scl_bg     = bg
+        self._scale_mode = tk.StringVar(value=self.scaling.get("mode", "linear"))
+
+        GAP, PILLS_H, GAMMA_H, CAP_H = 5, 88, 24, 16
+
+        # ── "Scaling" caption ────────────────────────────────────────────────
+        cap_fr = tk.Frame(parent, bg=bg, height=CAP_H)
+        cap_fr.pack_propagate(False)
+        cap_fr.pack(side=tk.TOP, fill=tk.X, pady=(0, GAP))
+        self._scl_caption = tk.Label(
+            cap_fr, text="Scaling", bg=bg,
+            fg=C.STEP_LABEL_TXT if active else C.STEP_LABEL_DIS,
+            font=("Helvetica", 8, "bold"))
+        self._scl_caption.pack(side=tk.LEFT, anchor="w")
+
+        # ── pills (fixed, compact height) ────────────────────────────────────
+        self._scl_font = tkfont.Font(family="Helvetica", size=9, weight="bold")
+        cv = tk.Canvas(parent, bg=bg, width=BTN_W, height=PILLS_H,
+                       highlightthickness=0, bd=0,
+                       cursor="pointinghand" if active else "arrow")
+        cv.pack(side=tk.TOP, fill=tk.X)
+        self._scl_canvas = cv
+        self._scl_nodes = []
+        cv.bind("<Button-1>", self._on_scale_pill)
+        cv.bind("<Configure>", lambda _e: self._draw_scaling_pills())
+
+        # ── gamma box (shorter than a pill), GAP below the pills ─────────────
+        gcard = tk.Frame(parent, bg=C.DIM, padx=1, pady=1, height=GAMMA_H)
+        gcard.pack_propagate(False)
+        gcard.pack(side=tk.TOP, fill=tk.X, pady=(GAP, 0))
+        box = tk.Frame(gcard, bg=C.ACCENT, padx=1, pady=1)      # accent border
+        box.pack(fill=tk.BOTH, expand=True)
+        self._gamma_border = box
+        row = tk.Frame(box, bg=C.CARD_BG, padx=4, pady=1)
+        row.pack(fill=tk.BOTH, expand=True)
+        self._gamma_cap = tk.Label(row, text="γ", bg=C.CARD_BG, fg=C.ACCENT,
+                                   font=("Georgia", 11, "italic"))
+        self._gamma_cap.pack(side=tk.LEFT, padx=(1, 4))
+        self._gamma_sl = tk.Scale(row, from_=0.1, to=2.0, resolution=0.05,
+                                  orient=tk.HORIZONTAL, command=self._on_card_gamma,
+                                  bg=C.ACCENT, fg=C.ACCENT, troughcolor=C.LOG_BG,
+                                  activebackground=C.ACCENT_HOVER,
+                                  highlightthickness=0, sliderrelief=tk.FLAT,
+                                  bd=0, showvalue=False, width=8)
+        self._gamma_sl.set(float(self.scaling.get("gamma", 0.5)))
+        self._gamma_sl.pack(side=tk.LEFT, fill=tk.X, expand=True)
+        self._gamma_divider = tk.Frame(row, bg=C.ACCENT, width=1)
+        self._gamma_divider.pack(side=tk.LEFT, fill=tk.Y, padx=(3, 0))   # divider
+        self._gamma_var = tk.StringVar(
+            value=f"{float(self.scaling.get('gamma', 0.5)):.2f}")
+        self._gamma_entry = tk.Entry(row, textvariable=self._gamma_var, width=4,
+                                     justify="right", bg=C.CARD_BG,
+                                     readonlybackground=C.CARD_BG, fg=C.ACCENT,
+                                     relief=tk.FLAT, highlightthickness=0,
+                                     font=("Courier", 7), bd=0, state="readonly")
+        self._gamma_entry.pack(side=tk.RIGHT, padx=(2, 1))
+
+        self._set_card_gamma_enabled(self._scale_mode.get() == "power")
+
+    def _draw_scaling_pills(self):
+        cv = self._scl_canvas
+        cv.delete("all")
+        H = cv.winfo_height()
+        W = cv.winfo_width()
+        if H <= 1 or W <= 1:
+            return
+        items = [("linear", "Linear Scale"),
+                 ("log",    "Log Scale"),
+                 ("power",  "Power Scale")]
+        n, GAP = len(items), 5
+        pill_h = (H - GAP * (n - 1)) // n
+        sel    = self._scale_mode.get()
+        active = getattr(self, "_scl_active", True)
+        light  = C._current_theme == "light"
+        self._scl_nodes = []
+        y = 0
+        for mode, label in items:
+            y1, y2 = y, y + pill_h
+            cy = (y1 + y2) // 2
+            self._scl_nodes.append((mode, 0, y1, W - 1, y2, cy, label))
+            if mode == sel and active:
+                fill = outline = C.ACCENT
+                txt_col = "#ffffff" if light else "#000000"
+            elif mode == sel:
+                fill = outline = C.DIM
+                txt_col = C.STEP_LABEL_DIS
+            else:
+                fill, outline = C.CARD_BG, C.DIM_TXT
+                txt_col = C.DIM_TXT if active else C.STEP_LABEL_DIS
+            # clamp bottom edge so the last pill's lower border isn't clipped
+            cv.create_rectangle(0, y1, W - 1, min(y2, H - 1),
+                                fill=fill, outline=outline, width=1)
+            cv.create_text(W // 2, cy, text=label,
+                           font=self._scl_font, fill=txt_col)
+            y += pill_h + GAP
+
+    def _on_scale_pill(self, event):
+        if not getattr(self, "_scl_active", True):
+            return
+        for mode, x1, y1, x2, y2, cy, label in self._scl_nodes:
+            if x1 <= event.x <= x2 and y1 <= event.y <= y2:
+                self._scale_mode.set(mode)
+                self._draw_scaling_pills()
+                self._set_card_gamma_enabled(mode == "power")
+                self._apply_card_scaling()
+                return
+
+    def _set_card_gamma_enabled(self, on):
+        on = bool(on) and getattr(self, "_scl_active", True)
+        if on:
+            self._gamma_sl.configure(state="normal", fg=C.ACCENT, bg=C.ACCENT,
+                                     troughcolor=C.LOG_BG,
+                                     activebackground=C.ACCENT_HOVER)
+            self._gamma_border.configure(bg=C.ACCENT)
+            self._gamma_divider.configure(bg=C.ACCENT)
+            self._gamma_cap.configure(fg=C.ACCENT)
+            self._gamma_entry.configure(fg=C.ACCENT)
+        else:
+            self._gamma_sl.configure(state="disabled", fg=C.DIM, bg=C.DIM,
+                                     troughcolor=C.CARD_BG, activebackground=C.DIM)
+            self._gamma_border.configure(bg=C.DIM)
+            self._gamma_divider.configure(bg=C.DIM)
+            self._gamma_cap.configure(fg=C.DIM_TXT)
+            self._gamma_entry.configure(fg=C.DIM_TXT)
+
+    def _on_card_gamma(self, _v=None):
+        self._gamma_var.set(f"{float(self._gamma_sl.get()):.2f}")
+        self._apply_card_scaling()
+
+    def _apply_card_scaling(self):
+        self.scaling = dict(mode=self._scale_mode.get(),
+                            gamma=float(self._gamma_sl.get()))
+        if self.cube_raw is not None:
+            self.cube = _apply_scaling(self.cube_raw, self.scaling)
+            self._render_moment0()
+
+    def _refresh_scaling_theme(self):
+        """Recolor the canvas-drawn pills + gamma box after a theme switch."""
+        if not hasattr(self, "_scl_canvas"):
+            return
+        bg = C.CARD_BG if self._scl_active else C.CARD_OFF
+        self._scl_canvas.configure(bg=bg)
+        self._scl_caption.configure(
+            bg=bg, fg=C.STEP_LABEL_TXT if self._scl_active else C.STEP_LABEL_DIS)
+        self._draw_scaling_pills()
+        self._set_card_gamma_enabled(self._scale_mode.get() == "power")
 
     def _build_buttons_step1(self, bg: str, active: bool):
-        _span = BTN_W * 2 + 6
-
-        row1 = tk.Frame(self._btn_zone, bg=bg)
-        row1.pack(pady=(4, 3))
-        self.btn_configure = _FlatBtn(row1, "Configure & Run Decomposition",
+        h = self._stack_height(3)
+        self.btn_configure = _FlatBtn(self._btn_zone, "Configure\nDetection",
                                       self._open_configure, bg_on=C.ACCENT, active=active,
-                                      height=BTN_TALL, btn_width=_span)
-        self.btn_configure.pack(padx=3)
+                                      height=h)
         self.btn_decompose = self.btn_configure
-
-        row2 = tk.Frame(self._btn_zone, bg=bg)
-        row2.pack()
-        self.btn_run = _FlatBtn(row2, "Run Source ID",
+        self.btn_run = _FlatBtn(self._btn_zone, "Run Source ID",
                                 self._run_sourceid, bg_on=C.RUN_COLOR, active=active,
-                                font=("Helvetica", 11, "bold"), height=BTN_TALL)
-        self.btn_det_view = _FlatBtn(row2, "View Detections",
+                                font=("Arial", 10, "bold"), height=h,
+                                special_color="yellow")
+        self.btn_det_view = _FlatBtn(self._btn_zone, "View Detections",
                                      self._view_detections, bg_on=C.ACCENT, active=False,
-                                     height=BTN_TALL)
-        self.btn_run.pack(side=tk.LEFT, padx=3)
-        self.btn_det_view.pack(side=tk.LEFT, padx=3)
+                                     height=h)
+        self._stack((self.btn_configure, self.btn_run, self.btn_det_view))
 
     def _build_buttons_step2(self, bg: str, active: bool):
-        _span = BTN_W * 2 + 6
-        row1 = tk.Frame(self._btn_zone, bg=bg)
-        row1.pack(pady=(4, 3))
-        self.btn_flow_params = _FlatBtn(row1, "Optical Flow\nParameters",
-                                        self._open_flow_params, bg_on=C.ACCENT, active=active,
-                                        height=BTN_TALL, font=("Helvetica", 10))
-        self.btn_false_det_params = _FlatBtn(row1, "False Detection\nParameters",
-                                             self._open_false_det_params,
-                                             bg_on=C.ACCENT, active=active,
-                                             height=BTN_TALL, font=("Helvetica", 10))
-        self.btn_flow_params.pack(side=tk.LEFT, padx=3)
-        self.btn_false_det_params.pack(side=tk.LEFT, padx=3)
+        # Fixed-height column spanning the preview square, so the bottom of the
+        # View Flow button lines up with the bottom of the square.
+        col = tk.Frame(self._btn_zone, bg=bg, width=BTN_W, height=CARD_H)
+        col.pack_propagate(False)
+        col.pack(side=tk.TOP, anchor="n")
+        self._flow_col = col
+        self._build_flow_controls(col, bg, active)
 
-        row2 = tk.Frame(self._btn_zone, bg=bg)
-        row2.pack()
-        self.btn_flow_view = _FlatBtn(row2, "View Flow Per Channel",
+    # ------------------------------------------------------------------ #
+    # Card-level flow / false-detection parameters (inline sliders)
+    # ------------------------------------------------------------------ #
+
+    def _build_flow_controls(self, parent, bg: str, active: bool):
+        self._flow_active = active
+        self._flow_bg     = bg
+        self._flow_params = dict(min_match_overlap=5, max_gap_channels=5)
+        self._fd_defaults = dict(wav_abrupt_thresh=0.5, flow_iou_thresh=0.25,
+                                 short_det_max=8)
+        self._false_det_params = dict(self._fd_defaults)
+        self._flow_param_sliders: list = []   # registry for enable/disable
+        self._flow_caption_lbls: list  = []   # labels that dim when disabled
+
+        GROUP_H, FDBTN_H, GAP = 132, 44, 6
+        VIEW_H = max(CARD_H - GROUP_H - GAP - FDBTN_H - GAP, BTN_H)
+
+        # ── Optical Flow Parameters group box ────────────────────────────────
+        of_specs = [
+            ("flow", "min_match_overlap", "Min match overlap (px)", 1, 100, 1, "int"),
+            ("flow", "max_gap_channels",  "Max channel gap bridged", 1, 50, 1, "int"),
+        ]
+        self._build_group_box(parent, "Optical Flow Parameters", of_specs,
+                              bg, active, GROUP_H)
+
+        # ── False Detection Parameters button (opens dialog) ─────────────────
+        self.btn_fd_params = _FlatBtn(parent, "False Detection\nParameters",
+                                      self._open_false_det_params, bg_on=C.ACCENT,
+                                      active=False, height=FDBTN_H,
+                                      font=("Arial", 9, "bold"))
+        self.btn_fd_params.pack(side=tk.TOP, fill=tk.X, pady=(GAP, 0))
+
+        # ── View Flow button (fills remaining height) ────────────────────────
+        self.btn_flow_view = _FlatBtn(parent, "View Flow\nPer Channel",
                                       self._view_flow, bg_on=C.ACCENT, active=False,
-                                      height=BTN_TALL, btn_width=_span,
-                                      font=("Helvetica", 10))
-        self.btn_flow_view.pack(padx=3)
+                                      height=VIEW_H, font=("Arial", 10, "bold"))
+        self.btn_flow_view.pack(side=tk.TOP, fill=tk.X, pady=(GAP, 0))
+
+        self._set_flow_params_enabled(active)
+
+    def _build_group_box(self, parent, title: str, specs: list, bg: str,
+                         active: bool, height: int):
+        """A titled, faint-bordered box holding param description cards + sliders."""
+        CAP_H, SL_H, CAP_PAD, SL_PAD = 22, 24, 2, 6
+        outer = tk.Frame(parent, bg=C.DIM, padx=1, pady=1, height=height)
+        outer.pack_propagate(False)
+        outer.pack(side=tk.TOP, fill=tk.X)
+        inner = tk.Frame(outer, bg=bg)
+        inner.pack(fill=tk.BOTH, expand=True)
+        title_lbl = tk.Label(inner, text=title, bg=bg,
+                             fg=C.STEP_LABEL_TXT if active else C.STEP_LABEL_DIS,
+                             font=("Helvetica", 8, "bold"))
+        title_lbl.pack(side=tk.TOP, anchor="w", padx=5, pady=(3, 4))
+        self._flow_caption_lbls.append(title_lbl)
+        for i, (group, key, name, lo, hi, res, kind) in enumerate(specs):
+            self._build_param_card(inner, name, bg, active, CAP_H, CAP_PAD)
+            self._build_param_slider(inner, group, key, lo, hi, res, kind,
+                                     active=active, height=SL_H,
+                                     pad=(0 if i == len(specs) - 1 else SL_PAD))
+
+    def _build_param_card(self, parent, text: str, bg: str, active: bool,
+                          height: int, pad: int):
+        """A small faint-bordered card describing a single parameter."""
+        card = tk.Frame(parent, bg=C.DIM, padx=1, pady=1, height=height)
+        card.pack_propagate(False)
+        card.pack(side=tk.TOP, fill=tk.X, padx=4, pady=(0, pad))
+        inner = tk.Frame(card, bg=bg)
+        inner.pack(fill=tk.BOTH, expand=True)
+        lbl = tk.Label(inner, text=text, bg=bg,
+                       fg=C.STEP_LABEL_TXT if active else C.STEP_LABEL_DIS,
+                       font=("Helvetica", 8, "bold"), justify="left",
+                       wraplength=BTN_W - 18)
+        lbl.pack(side=tk.LEFT, padx=4)
+        self._flow_caption_lbls.append(lbl)
+
+    def _build_param_slider(self, parent, group: str, key: str,
+                            lo, hi, res, kind: str, active: bool,
+                            height: int, pad: int):
+        """Accent-bordered slider box with a divider and an editable value."""
+        cur = (self._flow_params if group == "flow"
+               else self._false_det_params)[key]
+
+        def _on(v, g=group, k=key):
+            (self._flow_params if g == "flow" else self._false_det_params)[k] = v
+
+        parts = make_slider_box(parent, lo, hi, res, kind, cur,
+                                on_change=_on, height=height, divider_padx=(7, 0))
+        parts["outer"].pack(side=tk.TOP, fill=tk.X, padx=4, pady=(0, pad))
+        self._flow_param_sliders.append(dict(
+            group=group, key=key, kind=kind, default=cur,
+            border=parts["box"], scale=parts["scale"], entry=parts["entry"],
+            divider=parts["divider"], set=parts["set"]))
+
+    def _open_false_det_params(self):
+        if not getattr(self, "_flow_active", False):
+            return
+        FalseDetParamsDialog(self, on_save=self._on_fd_params_saved,
+                             current=self._false_det_params)
+
+    def _on_fd_params_saved(self, params: dict):
+        self._false_det_params = params
+
+    # ── enable / reset ───────────────────────────────────────────────────────
+
+    def _set_flow_params_enabled(self, on: bool):
+        self._flow_active = bool(on)
+        for lbl in getattr(self, "_flow_caption_lbls", []):
+            lbl.configure(fg=C.STEP_LABEL_TXT if on else C.STEP_LABEL_DIS)
+        for w in getattr(self, "_flow_param_sliders", []):
+            if on:
+                w["scale"].configure(state="normal", fg=C.ACCENT, bg=C.ACCENT,
+                                     troughcolor=C.LOG_BG,
+                                     activebackground=C.ACCENT_HOVER)
+                w["border"].configure(bg=C.ACCENT)
+                w["divider"].configure(bg=C.ACCENT)
+                w["entry"].configure(state="normal", fg=C.ACCENT)
+            else:
+                w["scale"].configure(state="disabled", fg=C.DIM, bg=C.DIM,
+                                     troughcolor=C.CARD_BG, activebackground=C.DIM)
+                w["border"].configure(bg=C.DIM)
+                w["divider"].configure(bg=C.DIM)
+                w["entry"].configure(state="disabled")
+        btn = getattr(self, "btn_fd_params", None)
+        if btn is not None:
+            btn.enable() if on else btn.disable()
+
+    def _reset_flow_controls(self):
+        """Restore optical-flow sliders and false-detection params to defaults."""
+        self._flow_params = dict(min_match_overlap=5, max_gap_channels=5)
+        self._false_det_params = dict(self._fd_defaults)
+        for w in getattr(self, "_flow_param_sliders", []):
+            w["set"](w["default"])
 
     def _build_buttons_step3(self, bg: str, active: bool):
-        _span = BTN_W * 2 + 6
-        row1 = tk.Frame(self._btn_zone, bg=bg)
-        row1.pack(pady=(4, 3))
-        self.btn_view_sources = _FlatBtn(row1, "View Sources per Channel",
+        h = self._stack_height(4)
+        self.btn_view_sources = _FlatBtn(self._btn_zone, "View Sources",
                                          self._view_sources_per_channel,
                                          bg_on=C.RUN_COLOR, active=False,
-                                         font=("Helvetica", 11, "bold"),
-                                         btn_width=_span, height=BTN_TALL)
-        self.btn_view_sources.pack(padx=3)
-
-        row2 = tk.Frame(self._btn_zone, bg=bg)
-        row2.pack()
-        self.btn_combined    = _FlatBtn(row2, "Combined\nAnalysis",
-                                        self._combined_analysis,
-                                        bg_on=C.ACCENT, active=False,
-                                        height=BTN_TALL, font=("Helvetica", 10))
-        self.btn_individual  = _FlatBtn(row2, "Individual\nAnalysis",
-                                        self._individual_analysis,
-                                        bg_on=C.ACCENT, active=False,
-                                        height=BTN_TALL, font=("Helvetica", 10))
-        self.btn_combined.pack(side=tk.LEFT, padx=3)
-        self.btn_individual.pack(side=tk.LEFT, padx=3)
+                                         font=("Arial", 10, "bold"),
+                                         height=h,
+                                         special_color="yellow")
+        self.btn_combined = _FlatBtn(self._btn_zone, "Combined\nAnalysis",
+                                     self._combined_analysis,
+                                     bg_on=C.ACCENT, active=False,
+                                     height=h, font=("Arial", 10, "bold"))
+        self.btn_individual = _FlatBtn(self._btn_zone, "Individual\nAnalysis",
+                                       self._individual_analysis,
+                                       bg_on=C.ACCENT, active=False,
+                                       height=h, font=("Arial", 10, "bold"))
+        self.btn_reset = _FlatBtn(self._btn_zone, "Reset",
+                                  self._app._reset_pipeline if self._app else None,
+                                  bg_on=C.ACCENT, active=True,
+                                  height=h, font=("Arial", 10, "bold"),
+                                  special_color="red")
+        self._stack((self.btn_view_sources, self.btn_combined,
+                     self.btn_individual, self.btn_reset))
 
     def _build_buttons_generic(self, bg: str):
-        row1 = tk.Frame(self._btn_zone, bg=bg)
-        row1.pack(pady=(6, 0))
-        self.btn_run = _FlatBtn(row1, "Run Pipeline",
+        self.btn_run = _FlatBtn(self._btn_zone, "Run Pipeline",
                                 lambda: messagebox.showinfo("Coming soon", "Not yet implemented."),
                                 bg_on=C.RUN_COLOR, active=False,
-                                font=("Helvetica", 9, "bold"))
-        self.btn_run.pack(padx=3)
+                                font=("Arial", 10, "bold"),
+                                height=self._stack_height(1))
+        self._stack((self.btn_run,))
 
     # ------------------------------------------------------------------ #
     # Log / preview
@@ -693,11 +1160,8 @@ class CubeCard(tk.Frame):
         self.kpc_per_pix = kpc_per_pix
         self._render_moment0()
         self.btn_view.enable()
-        self.btn_spectrum.enable()
-        self.btn_scaling.enable()
         if self._app and len(self._app.cards) > 2:
-            self._app.cards[2].btn_flow_params.enable()
-            self._app.cards[2].btn_false_det_params.enable()
+            self._app.cards[2]._set_flow_params_enabled(True)
         if self._app:
             self._app._disable_theme_button()
         if self._on_loaded:
@@ -712,77 +1176,99 @@ class CubeCard(tk.Frame):
                     mode="raw",
                     initial_norm=self.scaling.get("mode", "linear"),
                     initial_gamma=self.scaling.get("gamma", 0.5),
-                    beam=self.beam, pixscale=self.pixscale, kpc_per_pix=self.kpc_per_pix)
+                    beam=self.beam, pixscale=self.pixscale, kpc_per_pix=self.kpc_per_pix,
+                    vel_array=self.vel_array,
+                    card_0=self)
 
-    def _open_scaling(self):
-        if self.cube_raw is None:
-            return
-        ScalingDialog(self, on_save=self._on_scaling_saved,
-                      current=self.scaling)
-
-    def _on_scaling_saved(self, scaling: dict):
-        self.scaling = scaling
-        self.cube    = _apply_scaling(self.cube_raw, scaling)
-        self._render_moment0()
-
-    def _view_spectrum(self):
-        messagebox.showinfo("View Spectrum", "Spectrum viewer — coming soon.")
-
-    def _poll_pipeline(self, q: queue.Queue, log_card: int = 1):
-        done = False
+    def _poll_pipeline(self, q: queue.Queue, log_card: int = 1, carry=None):
+        # Drain everything currently available (plus any messages carried over
+        # from the previous tick) into one ordered list.
+        pending = list(carry) if carry else []
         try:
             while True:
-                msg  = q.get_nowait()
-                kind = msg[0]
-
-                if kind == "log":
-                    if self._app and len(self._app.cards) > log_card:
-                        self._app.cards[log_card]._append_log(msg[1])
-
-                elif kind == "switch_card":
-                    log_card = msg[1]
-                    if self._app and len(self._app.cards) > log_card:
-                        self._app.cards[log_card]._init_log_preview()
-
-                elif kind == "detection_done":
-                    _, det, wav_p, frames = msg
-                    self._on_detection_done(det, wav_p, frames=frames)
-                    self._step_label.configure(text="Flow…")
-
-                elif kind == "flow_done":
-                    _, flow_seq, frames = msg
-                    if self._app:
-                        c2 = self._app.cards[2]
-                        if not c2.enabled:
-                            c2.enable()
-                        c2._on_flow_done(flow_seq, frames=frames)
-
-                elif kind == "tracking_done":
-                    _, flow_seq, tracks, sources, frames = msg
-                    if self._app:
-                        c3 = self._app.cards[3]
-                        if not c3.enabled:
-                            c3.enable()
-                        c3._on_tracking_done(tracks, sources, frames=frames)
-                    self._step_label.configure(text=self.name)
-                    self.btn_run.enable()
-                    self.btn_decompose.enable()
-                    self.btn_configure.enable()
-                    done = True
-
-                elif kind == "error":
-                    messagebox.showerror("Pipeline failed", msg[1])
-                    self._step_label.configure(text=self.name)
-                    self.btn_run.enable()
-                    self.btn_decompose.enable()
-                    self.btn_configure.enable()
-                    done = True
-
+                pending.append(q.get_nowait())
         except queue.Empty:
             pass
 
+        done = False
+        appended_log = False
+        leftover = []
+        i = 0
+        while i < len(pending):
+            msg  = pending[i]
+            kind = msg[0]
+
+            if kind == "log":
+                if self._app and len(self._app.cards) > log_card:
+                    self._app.cards[log_card]._append_log(msg[1])
+                appended_log = True
+                i += 1
+                continue
+
+            # Any view-changing transition: if we've already appended log lines
+            # this tick, defer it (and the rest) so the logs actually paint
+            # before the preview switches away — this is what makes card 1's
+            # detection logs stream like card 2's flow logs.
+            if appended_log:
+                leftover = pending[i:]
+                break
+
+            if kind == "switch_card":
+                log_card = msg[1]
+                if self._app and len(self._app.cards) > log_card:
+                    self._app.cards[log_card]._init_log_preview()
+
+            elif kind == "detection_done":
+                det, wav_p, frames = msg[1], msg[2], msg[3]
+                ms_dets = msg[4] if len(msg) > 4 else None
+                self._on_detection_done(det, wav_p, frames=frames, multi_scale_dets=ms_dets)
+                self._step_label.configure(text="Flow…")
+
+            elif kind == "flow_done":
+                flow_seq, frames = msg[1], msg[2]
+                fps = msg[3] if len(msg) > 3 else None
+                dps = msg[4] if len(msg) > 4 else None
+                if self._app:
+                    c2 = self._app.cards[2]
+                    if not c2.enabled:
+                        c2.enable()
+                    c2._on_flow_done(flow_seq, frames=frames,
+                                     flow_seq_per_scale=fps,
+                                     detections_per_scale=dps)
+
+            elif kind == "tracking_done":
+                flow_seq, tracks, sources, frames = msg[1], msg[2], msg[3], msg[4]
+                hier = msg[5] if len(msg) > 5 else None
+                tps  = msg[6] if len(msg) > 6 else None
+                sps  = msg[7] if len(msg) > 7 else None
+                ms_dets = msg[8] if len(msg) > 8 else None
+                if self._app:
+                    c3 = self._app.cards[3]
+                    if not c3.enabled:
+                        c3.enable()
+                    c3._on_tracking_done(tracks, sources, frames=frames,
+                                         hierarchical_sources=hier,
+                                         tracks_per_scale=tps,
+                                         sources_per_scale=sps,
+                                         multi_scale_dets=ms_dets)
+                self._step_label.configure(text=self.name)
+                self.btn_run.enable()
+                self.btn_decompose.enable()
+                self.btn_configure.enable()
+                done = True
+
+            elif kind == "error":
+                messagebox.showerror("Pipeline failed", msg[1])
+                self._step_label.configure(text=self.name)
+                self.btn_run.enable()
+                self.btn_decompose.enable()
+                self.btn_configure.enable()
+                done = True
+
+            i += 1
+
         if not done:
-            self.after(40, lambda: self._poll_pipeline(q, log_card))
+            self.after(40, lambda: self._poll_pipeline(q, log_card, leftover))
 
     # ------------------------------------------------------------------ #
     # Card 1 actions
@@ -794,38 +1280,52 @@ class CubeCard(tk.Frame):
     def _on_params_saved(self, params: dict):
         self._wav_params = params
 
-    def _on_detection_done(self, detections: list, params: dict, frames: dict | None = None):
-        self.detections  = detections
-        self._wav_params = params
+    def _on_detection_done(self, detections: list, params: dict,
+                           frames: dict | None = None,
+                           multi_scale_dets: list | None = None):
+        self.detections        = detections
+        self._multi_scale_dets = multi_scale_dets or []
+        self._wav_params       = params
+        c0   = self._app.cards[0] if self._app else None
+        cube = c0.cube if c0 else None
         if frames is None:
-            c0   = self._app.cards[0] if self._app else None
-            cube = c0.cube if c0 else None
-            if cube is not None:
+            if self._multi_scale_dets and cube is not None:
+                frames = _build_multi_scale_frames(
+                    cube, self._multi_scale_dets, c0.beam, c0.pixscale)
+            elif detections and cube is not None:
                 frames = _build_wavelet_frames(cube, detections, c0.beam, c0.pixscale)
             else:
                 frames = {}
+        elif not frames and self._multi_scale_dets and cube is not None:
+            frames = _build_multi_scale_frames(
+                cube, self._multi_scale_dets, c0.beam, c0.pixscale)
         self._gif_frames_by_ch = frames
         self._gif_tk_by_ch     = {}
-        self._has_figure = True
-        self._install_gif_canvas()
-        self._preview_state = "figure"
-        if self._app:
-            self._app.refresh_gif_clock()
-        if self._log_lines:
-            self._raise_toggle("Show Logs")
+        if frames:
+            # Same behaviour as card 2 / card 3: logs stream into the preview
+            # while detection runs, then switch to the GIF when it completes.
+            self._has_figure = True
+            self._install_gif_canvas()
+            self._preview_state = "figure"
+            if self._app:
+                self._app.refresh_gif_clock()
+            if self._log_lines:
+                self._raise_toggle("Show Logs")
         self.btn_det_view.enable()
         if self._on_loaded:
             self._on_loaded(self.index)
 
     def _view_detections(self):
-        if not self.detections:
+        if not self.detections and not self._multi_scale_dets:
             messagebox.showinfo("No detections", "Run Decomposition first.")
             return
         cube = self._app.cards[0].cube if self._app else None
         if cube is None:
             return
         c0 = self._app.cards[0] if self._app else None
-        SliceViewer(self, cube, detections=self.detections, mode="detections",
+        SliceViewer(self, cube, detections=self.detections,
+                    multi_scale_dets=self._multi_scale_dets or None,
+                    mode="detections",
                     beam=c0.beam if c0 else None, pixscale=c0.pixscale if c0 else None,
                     kpc_per_pix=c0.kpc_per_pix if c0 else None)
 
@@ -847,7 +1347,8 @@ class CubeCard(tk.Frame):
                     wav_params=self._wav_params,
                     detections=self.detections,
                     on_scale_chosen=_on_chosen,
-                    on_params_saved=_on_saved)
+                    on_params_saved=_on_saved,
+                    card_0=self._app.cards[0] if self._app else None)
 
     def _run_decomposition(self):
         cube = self._app.cards[0].cube if self._app else None
@@ -893,6 +1394,10 @@ class CubeCard(tk.Frame):
         )
         fd_p = (self._app.cards[2]._false_det_params if self._app else None) or {}
 
+        # Read BooleanVar on the main thread — Tcl is not thread-safe
+        _ms_var = getattr(c0, '_multi_scale_enabled', None)
+        multi_scale_enabled = _ms_var.get() if isinstance(_ms_var, tk.BooleanVar) else True
+
         self.btn_run.disable()
         self.btn_decompose.disable()
         self.btn_configure.disable()
@@ -909,38 +1414,81 @@ class CubeCard(tk.Frame):
             try:
                 from ..detect import WaveletDetector, active_channels
                 from ..track  import compute_flow_sequence, link_tracks, _reconcile_splits
-                from ..track  import group_into_sources, classify_sources, classify_kinematic
+                from ..track  import group_into_sources, classify_sources, classify_kinematic, FlowTracker
 
                 ch_list = active_channels(cube)
-                det = WaveletDetector(**wav_p).detect(cube, channel_list=ch_list, verbose=True)
-                wav_frames = _build_wavelet_frames(cube, det, _beam, _pixscale)
-                q.put(("detection_done", det, wav_p, wav_frames))
 
-                q.put(("switch_card", 2))
-                flow_seq   = compute_flow_sequence(det, verbose=True)
-                flow_frames = _build_flow_frames(cube, flow_seq, det, _beam, _pixscale)
-                q.put(("flow_done", flow_seq, flow_frames))
+                if multi_scale_enabled:
+                    # Multi-scale path: detection (card 1) → per-scale flow &
+                    # linking (card 2) → grouping & hierarchy (card 3).  Each
+                    # phase runs verbose so its logs land on the right card.
+                    detector = WaveletDetector(detect_all_scales=True, **wav_p)
+                    multi_scale_dets = detector.detect(cube, channel_list=ch_list, verbose=True)
 
-                q.put(("switch_card", 3))
-                tracks = link_tracks(det, flow_seq,
-                                     min_match_overlap=flow_p["min_match_overlap"],
-                                     max_gap_channels=flow_p["max_gap_channels"],
-                                     verbose=True)
-                det_rev  = list(reversed(det))
-                flow_rev = [(b, a, -fl, mg) for (a, b, fl, mg) in reversed(flow_seq)]
-                bwd = link_tracks(det_rev, flow_rev,
-                                  min_match_overlap=flow_p["min_match_overlap"],
-                                  max_gap_channels=flow_p["max_gap_channels"])
-                _reconcile_splits(tracks, bwd, verbose=True)
-                classify_kinematic(tracks, verbose=True)
-                sources = group_into_sources(tracks)
-                good_sources, false_dets, _, _ = classify_sources(
-                    sources, tracks, det, flow_seq,
-                    verbose=True, **fd_p,
-                )
-                src_frames = (_build_sources_frames(cube, tracks, good_sources, _beam, _pixscale)
-                              if good_sources else {})
-                q.put(("tracking_done", flow_seq, tracks, good_sources, src_frames))
+                    det = []
+                    q.put(("detection_done", det, wav_p, {}, multi_scale_dets))
+                    q.put(("switch_card", 2))
+
+                    tracker = FlowTracker(detector=detector,
+                                        min_match_overlap=flow_p["min_match_overlap"],
+                                        max_gap_channels=flow_p["max_gap_channels"],
+                                        **fd_p)
+
+                    # Phase 1 — per-scale optical flow + track linking
+                    dps = tracker._multi_scale_to_per_scale_dets(multi_scale_dets)
+                    tracks_per_scale, flow_seq_per_scale = tracker.link_multi_scale(
+                        dps, verbose=True)
+                    coarsest = max(flow_seq_per_scale.keys())
+                    flow_frames = _build_multi_scale_flow_frames(
+                        cube, flow_seq_per_scale, dps, coarsest, _beam, _pixscale)
+                    flow_seq = flow_seq_per_scale[coarsest]
+                    q.put(("flow_done", flow_seq, flow_frames,
+                           flow_seq_per_scale, dps))
+                    q.put(("switch_card", 3))
+
+                    # Phase 2 — grouping, hierarchy, false-detection filtering
+                    result = tracker.group_multi_scale(
+                        multi_scale_dets, dps, tracks_per_scale,
+                        flow_seq_per_scale, verbose=True)
+                    tracks = result.tracks
+                    good_sources = result.sources
+                    src_frames = _build_hierarchical_sources_frames(
+                        cube, result.hierarchical_sources, result.tracks_per_scale,
+                        multi_scale_dets, _beam, _pixscale)
+                    q.put(("tracking_done", flow_seq, tracks, good_sources, src_frames,
+                           result.hierarchical_sources, result.tracks_per_scale,
+                           result.sources_per_scale, multi_scale_dets))
+                else:
+                    # Single-scale detection path (original)
+                    det = WaveletDetector(**wav_p).detect(cube, channel_list=ch_list, verbose=True)
+                    wav_frames = _build_wavelet_frames(cube, det, _beam, _pixscale)
+                    q.put(("detection_done", det, wav_p, wav_frames))
+
+                    q.put(("switch_card", 2))
+                    flow_seq   = compute_flow_sequence(det, verbose=True)
+                    flow_frames = _build_flow_frames(cube, flow_seq, det, _beam, _pixscale)
+                    q.put(("flow_done", flow_seq, flow_frames))
+
+                    q.put(("switch_card", 3))
+                    tracks = link_tracks(det, flow_seq,
+                                         min_match_overlap=flow_p["min_match_overlap"],
+                                         max_gap_channels=flow_p["max_gap_channels"],
+                                         verbose=True)
+                    det_rev  = list(reversed(det))
+                    flow_rev = [(b, a, -fl, mg) for (a, b, fl, mg) in reversed(flow_seq)]
+                    bwd = link_tracks(det_rev, flow_rev,
+                                      min_match_overlap=flow_p["min_match_overlap"],
+                                      max_gap_channels=flow_p["max_gap_channels"])
+                    _reconcile_splits(tracks, bwd, verbose=True)
+                    classify_kinematic(tracks, verbose=True)
+                    sources = group_into_sources(tracks)
+                    good_sources, false_dets, _, _ = classify_sources(
+                        sources, tracks, det, flow_seq,
+                        verbose=True, **fd_p,
+                    )
+                    src_frames = (_build_sources_frames(cube, tracks, good_sources, _beam, _pixscale)
+                                  if good_sources else {})
+                    q.put(("tracking_done", flow_seq, tracks, good_sources, src_frames))
             except Exception as exc:
                 q.put(("error", str(exc)))
             finally:
@@ -953,22 +1501,11 @@ class CubeCard(tk.Frame):
     # Card 2 actions
     # ------------------------------------------------------------------ #
 
-    def _open_flow_params(self):
-        FlowParamsDialog(self, on_save=self._on_flow_params_saved,
-                         current=self._flow_params)
-
-    def _on_flow_params_saved(self, params: dict):
-        self._flow_params = params
-
-    def _open_false_det_params(self):
-        FalseDetParamsDialog(self, on_save=self._on_false_det_params_saved,
-                             current=self._false_det_params)
-
-    def _on_false_det_params_saved(self, params: dict):
-        self._false_det_params = params
-
-    def _on_flow_done(self, flow_seq: list, frames: dict | None = None):
+    def _on_flow_done(self, flow_seq: list, frames: dict | None = None,
+                      flow_seq_per_scale=None, detections_per_scale=None):
         self.flow_seq = flow_seq
+        self._flow_seq_per_scale   = flow_seq_per_scale
+        self._flow_detections_per_scale = detections_per_scale
         if frames is None:
             c0   = self._app.cards[0] if self._app else None
             cube = c0.cube if c0 else None
@@ -979,16 +1516,17 @@ class CubeCard(tk.Frame):
                 frames = {}
         self._gif_frames_by_ch = frames
         self._gif_tk_by_ch     = {}
-        self._has_figure = True
-        self._install_gif_canvas()
-        self._preview_state = "figure"
-        if self._app:
-            self._app.refresh_gif_clock()
-            ch = self._app.current_gif_channel()
-            if ch is not None:
-                self.show_gif_for_channel(ch)
-        if self._log_lines:
-            self._raise_toggle("Show Logs")
+        if frames:
+            self._has_figure = True
+            self._install_gif_canvas()
+            self._preview_state = "figure"
+            if self._app:
+                self._app.refresh_gif_clock()
+                ch = self._app.current_gif_channel()
+                if ch is not None:
+                    self.show_gif_for_channel(ch)
+            if self._log_lines:
+                self._raise_toggle("Show Logs")
         self.btn_flow_view.enable()
         if self._on_loaded:
             self._on_loaded(self.index)
@@ -997,20 +1535,41 @@ class CubeCard(tk.Frame):
     # Card 3 actions
     # ------------------------------------------------------------------ #
 
-    def _on_tracking_done(self, tracks: list, sources: list, frames: dict | None = None):
+    def _on_tracking_done(self, tracks: list, sources: list, frames: dict | None = None,
+                          hierarchical_sources=None, tracks_per_scale=None,
+                          sources_per_scale=None, multi_scale_dets=None):
         self.tracks  = tracks
         self.sources = sources
+        self._hierarchical_sources = hierarchical_sources
+        self._tracks_per_scale     = tracks_per_scale
+        self._sources_per_scale    = sources_per_scale
+        self._multi_scale_dets     = multi_scale_dets or []
         n_tracks  = len(tracks)
         n_sources = len(sources)
-        self._append_log(
-            f"\n[Source Grouping]\n"
-            f"  Tracks   : {n_tracks}\n"
-            f"  Sources  : {n_sources}\n"
-        )
+        if hierarchical_sources:
+            n_roots  = sum(1 for h in hierarchical_sources if h.is_root())
+            n_leaves = sum(1 for h in hierarchical_sources if h.is_leaf())
+            self._append_log(
+                f"\n[Hierarchy]\n"
+                f"  Tracks (all scales)   : {n_tracks}\n"
+                f"  Hierarchical sources  : {len(hierarchical_sources)}\n"
+                f"  Trees (roots)         : {n_roots}\n"
+                f"  Leaves (finest scale) : {n_leaves}\n"
+            )
+        else:
+            self._append_log(
+                f"\n[Source Grouping]\n"
+                f"  Tracks   : {n_tracks}\n"
+                f"  Sources  : {n_sources}\n"
+            )
         if frames is None:
             c0   = self._app.cards[0] if self._app else None
             cube = c0.cube if c0 else None
-            if cube is not None and sources:
+            if cube is not None and hierarchical_sources and tracks_per_scale:
+                frames = _build_hierarchical_sources_frames(
+                    cube, hierarchical_sources, tracks_per_scale,
+                    self._multi_scale_dets, c0.beam, c0.pixscale)
+            elif cube is not None and sources:
                 frames = _build_sources_frames(cube, tracks, sources, c0.beam, c0.pixscale)
             else:
                 frames = {}
@@ -1035,30 +1594,40 @@ class CubeCard(tk.Frame):
 
     def _view_sources_per_channel(self):
         cube = self._app.cards[0].cube if self._app else None
-        if cube is None or not getattr(self, "sources", None):
+        hier = getattr(self, "_hierarchical_sources", None)
+        if cube is None or (not getattr(self, "sources", None) and not hier):
             return
         c0 = self._app.cards[0] if self._app else None
         SliceViewer(self, cube,
                     tracks=self.tracks, sources=self.sources,
+                    hierarchical_sources=hier,
+                    tracks_per_scale=getattr(self, "_tracks_per_scale", None),
                     mode="sources",
                     beam=c0.beam if c0 else None, pixscale=c0.pixscale if c0 else None,
-                    kpc_per_pix=c0.kpc_per_pix if c0 else None)
+                    kpc_per_pix=c0.kpc_per_pix if c0 else None,
+                    vel_array=c0.vel_array if c0 else None)
 
     def _combined_analysis(self):
         c0 = self._app.cards[0] if self._app else None
         cube = c0.cube if c0 else None
-        if cube is None or not getattr(self, "sources", None):
+        hier = getattr(self, "_hierarchical_sources", None)
+        if cube is None or (not getattr(self, "sources", None) and not hier):
             return
         CombinedAnalysisWindow(self, cube, self.tracks, self.sources,
-                               vel_array=c0.vel_array if c0 else None)
+                               vel_array=c0.vel_array if c0 else None,
+                               hierarchical_sources=hier,
+                               tracks_per_scale=getattr(self, "_tracks_per_scale", None))
 
     def _individual_analysis(self):
         c0 = self._app.cards[0] if self._app else None
         cube = c0.cube if c0 else None
-        if cube is None or not getattr(self, "sources", None):
+        hier = getattr(self, "_hierarchical_sources", None)
+        if cube is None or (not getattr(self, "sources", None) and not hier):
             return
         IndividualAnalysisWindow(self, cube, self.tracks, self.sources,
-                                 vel_array=c0.vel_array if c0 else None)
+                                 vel_array=c0.vel_array if c0 else None,
+                                 hierarchical_sources=hier,
+                                 tracks_per_scale=getattr(self, "_tracks_per_scale", None))
 
     def _view_flow(self):
         if not self.flow_seq:
@@ -1069,6 +1638,8 @@ class CubeCard(tk.Frame):
         det = self._app.cards[1].detections if self._app else None
         c0  = self._app.cards[0] if self._app else None
         SliceViewer(self, cube, detections=det, flow_seq=self.flow_seq, mode="flow",
+                    flow_seq_per_scale=getattr(self, "_flow_seq_per_scale", None),
+                    detections_per_scale=getattr(self, "_flow_detections_per_scale", None),
                     beam=c0.beam if c0 else None, pixscale=c0.pixscale if c0 else None,
                     kpc_per_pix=c0.kpc_per_pix if c0 else None)
 
@@ -1082,6 +1653,8 @@ class CubeCard(tk.Frame):
         self.enabled = True
         bg = C.CARD_BG
         self.configure(bg=bg, highlightbackground=C.CARD_BORDER, highlightcolor=C.CARD_BORDER)
+        self._body.configure(bg=bg)
+        self._right_col.configure(bg=bg)
         self._preview_frame.configure(bg=bg)
         self._btn_zone.configure(bg=bg)
         self._clear_preview()
@@ -1097,8 +1670,7 @@ class CubeCard(tk.Frame):
             self.btn_configure.enable()
             self.btn_run.enable()
         elif self.index == 2:
-            self.btn_flow_params.enable()
-            self.btn_false_det_params.enable()
+            self._set_flow_params_enabled(True)
         elif self.index == 3:
             pass
         else:
@@ -1107,6 +1679,8 @@ class CubeCard(tk.Frame):
 
     def refresh_on_theme_change(self):
         """Regenerate visualization frames with new theme colormap."""
+        if self.index == 0:
+            self._refresh_scaling_theme()
         if self._preview_state == "placeholder":
             return
         if self._preview_state == "logs":
@@ -1116,12 +1690,30 @@ class CubeCard(tk.Frame):
             current_ch = self._gif_last_ch
             # Regenerate frames based on what's currently displayed
             cube0 = self._app.cards[0].cube if self._app else None
+            c0 = self._app.cards[0] if self._app else None
+            beam = c0.beam if c0 else None
+            pxs  = c0.pixscale if c0 else None
             if self.index == 0 and self.cube is not None:
                 self._render_moment0(self.detections)
+            elif self.index == 1 and getattr(self, "_multi_scale_dets", None) and cube0 is not None:
+                self._gif_frames_by_ch = _build_multi_scale_frames(
+                    cube0, self._multi_scale_dets, beam, pxs)
+                self._gif_tk_by_ch = {}
             elif self.index == 1 and self.detections is not None and cube0 is not None:
                 self._render_wavelet_gif(cube0, self.detections)
+            elif self.index == 2 and getattr(self, "_flow_seq_per_scale", None) and cube0 is not None:
+                dps = getattr(self, "_flow_detections_per_scale", {}) or {}
+                coarsest = max(self._flow_seq_per_scale.keys())
+                self._gif_frames_by_ch = _build_multi_scale_flow_frames(
+                    cube0, self._flow_seq_per_scale, dps, coarsest, beam, pxs)
+                self._gif_tk_by_ch = {}
             elif self.index == 2 and self.flow_seq is not None and cube0 is not None:
                 self._render_flow_gif(cube0, self.flow_seq)
+            elif self.index == 3 and getattr(self, "_hierarchical_sources", None) and cube0 is not None:
+                self._gif_frames_by_ch = _build_hierarchical_sources_frames(
+                    cube0, self._hierarchical_sources, self._tracks_per_scale,
+                    getattr(self, "_multi_scale_dets", []), beam, pxs)
+                self._gif_tk_by_ch = {}
             elif self.index == 3 and self.sources is not None and cube0 is not None:
                 self._render_sources_gif(cube0, self.tracks, self.sources)
             # Clear the last channel so show_gif_for_channel will update
@@ -1149,8 +1741,14 @@ class CubeCard(tk.Frame):
             self.beam        = None
             self.pixscale    = None
             self.kpc_per_pix = None
-        self.detections  = None
-        self.flow_seq    = None
+        self.detections        = None
+        self._multi_scale_dets = []
+        self.flow_seq          = None
+        self._flow_seq_per_scale        = None
+        self._flow_detections_per_scale = None
+        self._hierarchical_sources      = None
+        self._tracks_per_scale          = None
+        self._sources_per_scale         = None
         self._wav_params = None
         self._flow_params= None
         self._log_lines  = []
@@ -1176,6 +1774,8 @@ class CubeCard(tk.Frame):
             self.enabled = False
             bg = C.CARD_OFF
             self.configure(bg=bg, highlightbackground=C.DIM, highlightcolor=C.DIM)
+            self._body.configure(bg=bg)
+            self._right_col.configure(bg=bg)
             self._preview_frame.configure(bg=bg)
             self._btn_zone.configure(bg=bg)
             self._draw_placeholder()
@@ -1183,8 +1783,11 @@ class CubeCard(tk.Frame):
             for child in self._btn_zone.winfo_children():
                 if isinstance(child, tk.Frame) and not isinstance(child, _FlatBtn):
                     child.configure(bg=bg)
+            if self.index == 2:
+                self._reset_flow_controls()
+                self._set_flow_params_enabled(False)
             for attr in ("btn_decompose", "btn_configure", "btn_det_view",
-                         "btn_flow_params", "btn_false_det_params", "btn_flow_view",
+                         "btn_flow_view",
                          "btn_view_sources", "btn_combined", "btn_individual",
                          "btn_run"):
                 if hasattr(self, attr):

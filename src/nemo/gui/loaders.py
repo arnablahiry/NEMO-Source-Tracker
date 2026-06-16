@@ -117,7 +117,15 @@ def _apply_scaling(cube: np.ndarray, scaling: dict) -> np.ndarray:
     if mode == "linear":
         return cube
     if mode == "log":
-        return np.log1p(np.clip(cube, 0.0, None)).astype(np.float32)
+        # Scale-invariant log: divide by a robust positive scale before log1p so
+        # the dynamic range is meaningful regardless of the data's absolute units
+        # (for small Jy/beam values, plain log1p(x) ≈ x and looks linear).
+        c = np.clip(cube, 0.0, None)
+        pos = c[c > 0]
+        scale = float(np.median(pos)) if pos.size else 1.0
+        if scale <= 0:
+            scale = 1.0
+        return np.log1p(c / scale).astype(np.float32)
     if mode == "power":
         gamma = float((scaling or {}).get("gamma", 0.5))
         return (np.clip(cube, 0.0, None) ** gamma).astype(np.float32)

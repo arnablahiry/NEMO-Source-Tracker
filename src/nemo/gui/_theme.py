@@ -12,12 +12,13 @@ def apply_theme(root_widget, mode: str) -> None:
     mode : str
         "dark" or "light".
     """
-    mapping = C._DARK_TO_LIGHT if mode == "light" else C._LIGHT_TO_DARK
+    # Regenerate mapping dictionaries dynamically to ensure current theme values are used
+    mapping = {v.lower(): C.LIGHT_THEME[k] for k, v in C.DARK_THEME.items()} if mode == "light" else {v.lower(): C.DARK_THEME[k] for k, v in C.LIGHT_THEME.items()}
     C._current_theme = mode
 
     # Update module-level color constants so newly created widgets use the right colors
     theme = C.LIGHT_THEME if mode == "light" else C.DARK_THEME
-    for key in ("BG", "CARD_BG", "CARD_OFF", "ACCENT", "CARD_BORDER", "DIM",
+    for key in ("BG", "CARD_BG", "CARD_OFF", "ACCENT", "ACCENT_HOVER", "CARD_BORDER", "DIM",
                 "DIM_TXT", "LOG_BG", "LOG_TXT", "BUTTON_BG", "BUTTON_TXT",
                 "PLACEHOLDER_TXT", "PLACEHOLDER_BG_EN", "PLACEHOLDER_BG_DIS",
                 "STEP_LABEL_TXT", "STEP_LABEL_DIS",
@@ -33,7 +34,9 @@ def _walk(widget, mapping: dict) -> None:
     # Standard tk color properties
     for prop in ("bg", "fg", "highlightbackground", "highlightcolor",
                  "selectcolor", "activebackground", "activeforeground",
-                 "troughcolor", "insertbackground", "buttonbackground"):
+                 "troughcolor", "insertbackground", "buttonbackground",
+                 "readonlybackground", "disabledbackground",
+                 "disabledforeground"):
         try:
             val = widget.cget(prop)
             if val and isinstance(val, str) and val.lower() in mapping:
@@ -41,15 +44,12 @@ def _walk(widget, mapping: dict) -> None:
         except Exception:
             pass
 
-    # _FlatBtn special handling
-    try:
-        from .widgets import _FlatBtn
-        if isinstance(widget, _FlatBtn):
-            if widget._bg_on.lower() in mapping:
-                widget._bg_on = mapping[widget._bg_on.lower()]
+    # Widgets that manage their own drawing via _refresh()
+    if hasattr(widget, '_refresh'):
+        try:
             widget._refresh(mapping)
-    except Exception:
-        pass
+        except Exception:
+            pass
 
     # Recurse to children
     for child in widget.winfo_children():

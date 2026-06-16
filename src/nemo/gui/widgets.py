@@ -6,88 +6,199 @@ from ._constants import ACCENT
 
 
 class _FlatBtn(tk.Frame):
-    """Reliably coloured flat button — tk.Button ignores bg on macOS."""
+    """Canvas-based button: accent border + accent text, hover fills solid (SONGS style)."""
 
     def __init__(self, parent, text: str, command,
-                 bg_on: str, fg_on: str = "black",
-                 font=("Helvetica", 11),
+                 bg_on: str = "",          # unused, kept for call-site compatibility
+                 fg_on: str = "",          # unused
+                 font=("Arial", 10, "bold"),
                  active: bool = False,
                  height: int | None = None,
                  btn_width: int | None = None,
+                 special_color: str = "",
                  **kw):
         from ._constants import BTN_W, BTN_H
-        self._bg_on  = bg_on
-        self._fg_on  = fg_on
         self._cmd    = command
         self._active = False
+        self._text   = text
+        self._font   = font
+        self._special_color = special_color
 
-        h  = height    if height    is not None else BTN_H
-        w  = btn_width if btn_width is not None else BTN_W
-        bg = bg_on if active else C.CARD_OFF
-        fg = fg_on if active else C.DIM_TXT
+        h = height    if height    is not None else BTN_H
+        w = btn_width if btn_width is not None else BTN_W
 
         super().__init__(parent, width=w, height=h,
-                         bg=bg, cursor="arrow", **kw)
+                         bg=C.CARD_BG, cursor="arrow", **kw)
         self.pack_propagate(False)
 
-        self._lbl = tk.Label(self, text=text, bg=bg, fg=fg,
-                             font=font, anchor="center", justify=tk.CENTER)
-        self._lbl.place(relwidth=1, relheight=1)
+        self._cv = tk.Canvas(self, highlightthickness=0, bd=0)
+        self._cv.place(relwidth=1, relheight=1)
 
+        self._draw()
         if active:
             self.enable()
 
+    # ── drawing ──────────────────────────────────────────────────────────────
+
+    def _draw(self, hover=False):
+        cv = self._cv
+        cv.delete("all")
+        w = int(self.cget("width"))
+        h = int(self.cget("height"))
+
+        # Special colors for specific button types
+        color_map_light = {
+            "red": {"idle": "#c41e3a", "hover": "#8b0000", "bg": "#fff5f5"},
+            "yellow": {"idle": "#8b6914", "hover": "#6b5410", "bg": "#fffef0"},
+        }
+        color_map_dark = {
+            "red": {"idle": "#ff6b6b", "hover": "#e74c3c", "bg": "#1a0a0a"},
+            "yellow": {"idle": "#d4af37", "hover": "#c9a961", "bg": "#1a1508"},
+        }
+
+        color_map = color_map_light if C._current_theme == "light" else color_map_dark
+        colors = color_map.get(self._special_color, {})
+
+        if colors:
+            # Special styling for both light and dark modes
+            if self._active:
+                if hover:
+                    fill, outline, fg = colors.get("hover", C.ACCENT), colors.get("hover", C.ACCENT), C.BG
+                else:
+                    fill, outline, fg = colors.get("bg", C.CARD_BG), colors.get("idle", C.ACCENT), colors.get("idle", C.ACCENT)
+            else:
+                fill, outline, fg = C.BUTTON_BG, C.BUTTON_TXT, C.BUTTON_TXT
+        else:
+            # Standard styling (no special color)
+            if self._active:
+                if hover:
+                    fill, outline, fg = C.ACCENT, C.ACCENT, C.BG
+                else:
+                    fill, outline, fg = C.CARD_BG, C.ACCENT, C.ACCENT
+            else:
+                fill = outline = fg = C.BUTTON_BG
+                fg = C.BUTTON_TXT
+                outline = C.BUTTON_TXT
+
+        cv.configure(bg=fill)
+        cv.create_rectangle(1, 1, w - 1, h - 1, fill=fill, outline=outline, width=1)
+        cv.create_text(w // 2, h // 2, text=self._text, fill=fg,
+                       font=self._font, justify="center")
+
+    # ── public API ───────────────────────────────────────────────────────────
+
     def enable(self, bg_on: str | None = None):
-        if bg_on:
-            self._bg_on = bg_on
         self._active = True
-        self.configure(bg=self._bg_on, cursor="pointinghand")
-        self._lbl.configure(bg=self._bg_on, fg=self._fg_on)
-        for w in (self, self._lbl):
-            w.bind("<Button-1>", self._click)
-            w.bind("<Enter>",    self._hover)
-            w.bind("<Leave>",    self._leave)
+        self.configure(cursor="pointinghand")
+        self._draw()
+        for w in (self, self._cv):
+            # Fire on release (not press) so a press can be cancelled by
+            # dragging off the button before letting go.
+            w.bind("<ButtonRelease-1>", self._click)
+            w.bind("<Enter>",    lambda _e: self._draw(hover=True))
+            w.bind("<Leave>",    lambda _e: self._draw(hover=False))
 
     def disable(self):
         self._active = False
-        self.configure(bg=C.BUTTON_BG, cursor="arrow")
-        self._lbl.configure(bg=C.BUTTON_BG, fg=C.BUTTON_TXT)
-        for w in (self, self._lbl):
-            w.unbind("<Button-1>")
+        self.configure(cursor="arrow")
+        self._draw()
+        for w in (self, self._cv):
+            w.unbind("<ButtonRelease-1>")
             w.unbind("<Enter>")
             w.unbind("<Leave>")
 
     def _refresh(self, mapping: dict | None = None):
-        """Repaint button after theme change, preserving active/disabled state."""
-        if self._active:
-            self.configure(bg=self._bg_on)
-            self._lbl.configure(bg=self._bg_on, fg=self._fg_on)
-        else:
-            # For disabled buttons, read the current tk bg (already mapped by _walk)
-            # and look up the mapped C.DIM_TXT from the mapping
-            bg = self.cget('bg')
-            if mapping:
-                fg = mapping.get(C.DIM_TXT.lower(), C.DIM_TXT)
-            else:
-                fg = C.DIM_TXT
-            self.configure(bg=bg)
-            self._lbl.configure(bg=bg, fg=fg)
+        self.configure(bg=C.CARD_BG)
+        self._draw()
 
-    def _click(self, _e=None):
-        if self._active and self._cmd:
-            self._cmd()
+    def _click(self, e=None):
+        if not (self._active and self._cmd):
+            return
+        # Only trigger if the pointer is still over the button on release.
+        if e is not None:
+            w, h = self.winfo_width(), self.winfo_height()
+            if not (0 <= e.x <= w and 0 <= e.y <= h):
+                return
+        self._cmd()
 
-    def _hover(self, _e=None):
-        r = int(self._bg_on[1:3], 16)
-        g = int(self._bg_on[3:5], 16)
-        b = int(self._bg_on[5:7], 16)
-        dim = f"#{int(r*.82):02x}{int(g*.82):02x}{int(b*.82):02x}"
-        self.configure(bg=dim)
-        self._lbl.configure(bg=dim)
 
-    def _leave(self, _e=None):
-        self.configure(bg=self._bg_on)
-        self._lbl.configure(bg=self._bg_on)
+def make_slider_box(parent, lo, hi, res, kind: str, value,
+                    on_change=None, height: int | None = None,
+                    divider_padx=(3, 0)):
+    """Accent-bordered slider with a divider and an editable value entry.
+
+    Shared look for every tweakable slider (gamma, optical-flow params,
+    false-detection params). Colours are read from the *current* theme.
+
+    Returns a dict with: outer, box, scale, entry, var, get(), set(v), refresh().
+    `on_change(value)` fires whenever the value changes (slider or typed entry).
+    """
+    def _fmt(v):
+        return str(int(round(float(v)))) if kind == "int" else f"{float(v):.2f}"
+
+    def _clamp(v):
+        v = max(lo, min(hi, v))
+        return int(round(v)) if kind == "int" else v
+
+    state = {"v": _clamp(float(value))}
+
+    outer = tk.Frame(parent, bg=C.DIM, padx=1, pady=1)
+    if height is not None:
+        outer.configure(height=height)
+        outer.pack_propagate(False)
+    box = tk.Frame(outer, bg=C.ACCENT, padx=1, pady=1)          # accent border
+    box.pack(fill=tk.BOTH, expand=True)
+    row = tk.Frame(box, bg=C.CARD_BG, padx=4, pady=1)
+    row.pack(fill=tk.BOTH, expand=True)
+
+    var = tk.StringVar(value=_fmt(state["v"]))
+    scale = tk.Scale(row, from_=lo, to=hi, resolution=res, orient=tk.HORIZONTAL,
+                     bg=C.ACCENT, fg=C.ACCENT, troughcolor=C.LOG_BG,
+                     activebackground=C.ACCENT_HOVER, highlightthickness=0,
+                     sliderrelief=tk.FLAT, bd=0, showvalue=False, width=8,
+                     length=46)   # small request so the value entry keeps its width
+    scale.set(state["v"])
+    scale.pack(side=tk.LEFT, fill=tk.X, expand=True)
+    divider = tk.Frame(row, bg=C.ACCENT, width=1)
+    divider.pack(side=tk.LEFT, fill=tk.Y, padx=divider_padx)
+    entry = tk.Entry(row, textvariable=var, width=5, justify="right",
+                     bg=C.CARD_BG, fg=C.ACCENT, insertbackground=C.ACCENT,
+                     disabledbackground=C.CARD_BG, disabledforeground=C.DIM_TXT,
+                     relief=tk.FLAT, highlightthickness=0, font=("Courier", 8), bd=0)
+    entry.pack(side=tk.RIGHT, padx=(2, 1))
+
+    _guard = {"busy": False}
+
+    def _commit(v, push_scale):
+        state["v"] = _clamp(v)
+        var.set(_fmt(state["v"]))
+        if push_scale:
+            _guard["busy"] = True
+            scale.set(state["v"])
+            _guard["busy"] = False
+        if on_change:
+            on_change(state["v"])
+
+    def _from_scale(_=None):
+        if _guard["busy"]:
+            return
+        _commit(float(scale.get()), push_scale=False)
+
+    def _from_entry(_=None):
+        try:
+            _commit(float(var.get()), push_scale=True)
+        except ValueError:
+            var.set(_fmt(state["v"]))
+
+    scale.configure(command=_from_scale)
+    entry.bind("<Return>", _from_entry)
+    entry.bind("<FocusOut>", _from_entry)
+
+    def _set(v):
+        _commit(float(v), push_scale=True)
+
+    return dict(outer=outer, box=box, row=row, scale=scale, entry=entry,
+                divider=divider, var=var, get=lambda: state["v"], set=_set, fmt=_fmt)
 
 
 class _QueueStream:
