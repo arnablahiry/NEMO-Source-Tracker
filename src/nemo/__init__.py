@@ -23,13 +23,18 @@ from .detect import (
     wavelet_footprints,
     reference_sigmas_from_mean_map,
 )
-from .gui import NemoGUI, launch
+def __getattr__(name):
+    if name in ("NemoGUI", "launch"):
+        from . import gui as _gui
+        return getattr(_gui, name)
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 from .hierarchy import (
     HierarchicalSourceGroup,
     ScaleDetection,
     PerChannelScaleDetections,
     build_hierarchical_sources,
 )
+from . import visualise
 from .track import (
     FlowTracker,
     TrackingResult,
@@ -45,6 +50,8 @@ from .track import (
 )
 
 __all__ = [
+    # Visualisation
+    "visualise",
     # GUI
     "NemoGUI",
     "launch",

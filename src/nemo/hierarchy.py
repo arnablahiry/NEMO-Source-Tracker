@@ -343,6 +343,10 @@ def build_hierarchical_sources(
                 v_max = float(channels[-1]) if channels else 0.0
                 v_cent = (v_min + v_max) / 2.0
 
+            _metrics = match_metrics.get((*key, *parent_info), (0.0, 0.0)) if parent_info else (1.0, 1.0)
+            _sp_ov, _sc_ov = _metrics
+            _confidence = float(np.sqrt(_sp_ov * _sc_ov))
+
             h_src = HierarchicalSourceGroup(
                 id=h_id_counter,
                 scale=scale,
@@ -350,10 +354,9 @@ def build_hierarchical_sources(
                 track_ids=src['track_ids'],
                 parent_id=parent_h_id,
                 children_ids=[],
-                spatial_overlap=(match_metrics.get((*key, *parent_info), (0, 0))[0]
-                               if parent_info else 1.0),
-                spectral_overlap=(match_metrics.get((*key, *parent_info), (0, 0))[1]
-                                if parent_info else 1.0),
+                spatial_overlap=_sp_ov,
+                spectral_overlap=_sc_ov,
+                match_confidence=_confidence,
                 velocity_min=v_min,
                 velocity_max=v_max,
                 centroid_velocity=v_cent,

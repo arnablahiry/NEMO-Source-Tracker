@@ -9,8 +9,24 @@ from matplotlib.colors import PowerNorm, LogNorm, Normalize
 
 from . import _constants as C
 from ._constants import _CMAPS
+from ._transport import TransportControls
 from .widgets import _FlatBtn
 from .dialogs import ScalingDialog
+
+
+def _subsample_for_stats(cube: np.ndarray, max_elems: int = 4_000_000):
+    """Return a strided view of *cube* with at most ~max_elems voxels.
+
+    Whole-cube reductions (min/max/percentile) stall the UI on large cubes.
+    A strided subsample gives display statistics that are visually identical
+    for free — it's a view, so no copy or extra memory.
+    """
+    n = cube.size
+    if n <= max_elems or cube.ndim != 3:
+        return cube
+    # Stride only the spatial axes so every channel is still represented.
+    step = int(np.ceil(np.sqrt(n / max_elems)))
+    return cube[:, ::step, ::step]
 
 
 def _contour_color():
@@ -77,7 +93,7 @@ def _rich_label(parent, segments, bg=None, fg=None):
     return cv
 
 
-class SliceViewer(tk.Toplevel):
+class SliceViewer(TransportControls, tk.Toplevel):
     """Channel-by-channel viewer with normalization controls and optional overlays.
 
     mode : "raw"        — plain channel images
@@ -283,13 +299,13 @@ class SliceViewer(tk.Toplevel):
             self._channels = list(range(cube.shape[0]))
 
         VW = 500
-        FW = 820
+        FW = 700
 
-        flat           = cube.ravel()
-        self._data_min = float(np.nanmin(flat))
-        self._data_max = float(np.nanmax(flat))
-        self._p1       = max(float(np.nanpercentile(flat, 1)), 0)
-        self._p99      = float(np.nanpercentile(flat, 99.5))
+        # Subsample for the vmin/vmax slider bounds — a strided view keeps this
+        # fast on large cubes (full-cube reductions stall the UI on load).
+        _sample = _subsample_for_stats(cube)
+        self._data_min = float(np.nanmin(_sample))
+        self._data_max = float(np.nanmax(_sample))
 
         from mpl_toolkits.axes_grid1 import make_axes_locatable
         self._fig   = plt.Figure(figsize=(FW/96, VW/96), dpi=96, facecolor=C.LOG_BG)
@@ -500,8 +516,11 @@ class SliceViewer(tk.Toplevel):
         ch_card_inner.pack(fill=tk.BOTH, expand=True)
         tk.Label(ch_card_inner, text="Channel", bg=C.CARD_BG, fg=C.STEP_LABEL_TXT,
                  font=("Helvetica", 8), anchor="w").pack(anchor="w", pady=(0, 3))
-        ch_box = tk.Frame(ch_card_inner, bg=_accent(), padx=1, pady=1)
-        ch_box.pack(fill=tk.X)
+        ctrl_row = tk.Frame(ch_card_inner, bg=C.CARD_BG)
+        ctrl_row.pack(fill=tk.X)
+        ch_box = tk.Frame(ctrl_row, bg=_accent(), padx=1, pady=1)
+        ch_box.pack(side=tk.LEFT, fill=tk.X, expand=True)
+        self._slider_box = ch_box
         ch_row = tk.Frame(ch_box, bg=C.CARD_BG, padx=4, pady=3)
         ch_row.pack(fill=tk.BOTH, expand=True)
         N_ch = len(self._channels)
@@ -530,10 +549,16 @@ class SliceViewer(tk.Toplevel):
         _update_ch_disp(N_ch // 2)
         self._slider.set(N_ch // 2)
 
+        # play / loop pills + FPS box (shared transport), right of the slider
+        self._init_transport_state()
+        self._build_transport(ctrl_row)
+
         self._build_spectrum(right)
 
         self._draw()
         self.update_idletasks()
+        from ._theme import set_titlebar_appearance
+        set_titlebar_appearance(self)
         w = self.winfo_reqwidth()
         h = self.winfo_reqheight()
         self.geometry(f"{w}x{h}")
@@ -887,10 +912,11 @@ class SliceViewer(tk.Toplevel):
     def _build_spectrum(self, parent):
         """Spectrum panel with a dashed marker tracking the current channel.
 
-        In the hierarchical-sources viewer the curve is *dynamic*: it shows the
-        integrated flux inside the union of the currently-selected sources
-        (like the Combined analysis window).  Otherwise it is the static
-        whole-field integrated spectrum (Σ over all spatial pixels).
+        In the sources viewer (hierarchical or flat) the panel is *dynamic*
+        and mirrors the Combined-analysis spectrum: a dashed whole-field
+        "Total" curve plus one curve per currently-selected source, each in
+        that source's contour colour, redrawn as sources are toggled.  In all
+        other modes it is the static whole-field integrated spectrum.
         """
         cube  = self._cube
         nchan = cube.shape[0]
@@ -902,75 +928,106 @@ class SliceViewer(tk.Toplevel):
             self._spec_x = np.arange(nchan, dtype=float)
             self._spec_xlabel = "Channel"
 
-        # Dynamic source-union spectrum in the sources viewer (hierarchical or
-        # flat); static whole-field integrated spectrum everywhere else.
+        # Per-source spectra in the sources viewer (hierarchical or flat);
+        # static whole-field integrated spectrum everywhere else.
         masks_by_ch = (self._hsrc_masks_by_ch if self._hsrc_mode
                        else self._src_masks_by_ch if self._mode == "sources"
                        else None)
         self._spec_source_mode = bool(masks_by_ch)
+        self._spec_total = np.nansum(cube, axis=(1, 2))
         if self._spec_source_mode:
-            self._spec_footprint = {}
+            self._spec_curve: dict = {}
             for sid, ch_dict in masks_by_ch.items():
                 fp = np.zeros((self._spec_H, self._spec_W), dtype=bool)
                 for masks in ch_dict.values():
                     for m in masks:
                         fp |= m
-                self._spec_footprint[sid] = fp
-            self._last_vis_key = self._spec_visible_ids()
-            spec_y = self._spec_source_spectrum(self._last_vis_key)
-        else:
-            spec_y = np.nansum(cube, axis=(1, 2))
+                self._spec_curve[sid] = (cube[:, fp].sum(axis=1) if fp.any()
+                                         else np.zeros(nchan, dtype=float))
 
-        txt_col = C.STEP_LABEL_TXT
-        fig = plt.Figure(figsize=(4.2, 2.4), dpi=96, facecolor=C.LOG_BG)
+        fig = plt.Figure(figsize=(3.0, 2.6), dpi=96, facecolor=C.LOG_BG)
         ax  = fig.add_subplot(111)
-        ax.set_facecolor(C.LOG_BG)
-        (self._spec_line,) = ax.plot(self._spec_x, spec_y, color=_accent(), lw=1.1)
-        ax.set_xlabel(self._spec_xlabel, color=txt_col, fontsize=9)
-        ax.set_ylabel(self._flux_unit, color=txt_col, fontsize=9)
-        ax.tick_params(colors=txt_col, labelsize=8, length=3)
-        ax.margins(x=0.02)
-        for sp in ax.spines.values():
-            sp.set_edgecolor(C.DIM_TXT)
-            sp.set_linewidth(0.8)
-        ch0 = self._channels[int(self._slider.get())]
-        self._spec_vline = ax.axvline(self._spec_x[ch0],
-                                      color=_contour_color(), ls="--", lw=1.1)
-        fig.tight_layout(pad=1.2)
         self._spec_fig    = fig
         self._spec_ax     = ax
         self._spec_canvas = FigureCanvasTkAgg(fig, master=parent)
         self._spec_canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
-        self._spec_canvas.draw()
+        self._last_vis_key = None
+        self._redraw_spectrum()
 
     def _spec_visible_ids(self):
         vis = self._hsrc_visible if self._hsrc_mode else self._src_visible
         return frozenset(sid for sid, v in vis.items() if v.get())
 
-    def _spec_source_spectrum(self, vis_ids):
-        """Integrated flux per channel inside the union of *vis_ids* footprints."""
-        mask = np.zeros((self._spec_H, self._spec_W), dtype=bool)
-        for sid in vis_ids:
-            fp = self._spec_footprint.get(sid)
-            if fp is not None:
-                mask |= fp
-        if mask.any():
-            return self._cube[:, mask].sum(axis=1)
-        return np.zeros(self._cube.shape[0], dtype=float)
+    def _spec_visible_items(self):
+        """[(label, sid, rgb)] for visible sources, coloured to match the image."""
+        from .analysis import _shade
+        items = []
+        if self._hsrc_mode:
+            _root_of, base_of = self._visible_hsrc_coloring()
+            for h, _depth in self._hsrc_order:
+                hid = h.id
+                if hid not in base_of:
+                    continue
+                rgb = _shade(base_of[hid], self._hsrc_alpha.get(hid, 1.0))
+                items.append((self._hsrc_name.get(hid, str(hid)), hid, rgb))
+        else:
+            for s in self._sources:
+                sid = s["id"]
+                v = self._src_visible.get(sid)
+                if v is not None and not v.get():
+                    continue
+                items.append((f"S{sid}", sid, self._src_color[sid][:3]))
+        return items
+
+    def _redraw_spectrum(self):
+        """Clear and replot the spectrum (Total + one curve per visible source)."""
+        ax = self._spec_ax
+        ax.clear()
+        txt_col = C.STEP_LABEL_TXT
+        ax.set_facecolor(C.LOG_BG)
+        ax.grid(True, color=C.DIM_TXT, alpha=0.22, linewidth=0.4)
+        ax.set_axisbelow(True)
+        xs = self._spec_x
+
+        if self._spec_source_mode:
+            ax.plot(xs, self._spec_total, color=C.DIM_TXT, lw=1.0, ls="--",
+                    label="Total")
+            items = self._spec_visible_items()
+            for label, sid, rgb in items:
+                ax.plot(xs, self._spec_curve[sid], color=rgb, lw=1.2, label=label)
+            if items:
+                leg = ax.legend(fontsize=6, ncol=2, framealpha=0.6,
+                                facecolor=C.LOG_BG, edgecolor=C.DIM_TXT,
+                                labelcolor=txt_col, handlelength=1.2,
+                                columnspacing=1.0, handletextpad=0.4,
+                                borderpad=0.3, loc="best")
+                leg.get_frame().set_linewidth(0.6)
+            self._last_vis_key = self._spec_visible_ids()
+        else:
+            ax.plot(xs, self._spec_total, color=_accent(), lw=1.1)
+
+        ax.set_xlabel(self._spec_xlabel, color=txt_col, fontsize=9)
+        ax.set_ylabel(self._flux_unit, color=txt_col, fontsize=9)
+        ax.tick_params(colors=txt_col, labelsize=8, length=3, direction="in",
+                       top=True, bottom=True, left=True, right=True)
+        ax.margins(x=0.02)
+        for sp in ax.spines.values():
+            sp.set_edgecolor(C.DIM_TXT)
+            sp.set_linewidth(0.8)
+        ch = self._channels[int(self._slider.get())]
+        self._spec_vline = ax.axvline(self._spec_x[ch],
+                                      color=_contour_color(), ls="--", lw=1.1)
+        self._spec_fig.tight_layout(pad=1.0)
+        self._spec_canvas.draw_idle()
 
     def _update_spectrum_data(self):
-        """Recompute the source-union spectrum when the selection changes."""
+        """Replot the per-source spectra when the source selection changes."""
         if not getattr(self, "_spec_source_mode", False) \
-                or not hasattr(self, "_spec_line"):
+                or not hasattr(self, "_spec_ax"):
             return
-        vis = self._spec_visible_ids()
-        if vis == self._last_vis_key:
+        if self._spec_visible_ids() == self._last_vis_key:
             return
-        self._last_vis_key = vis
-        self._spec_line.set_ydata(self._spec_source_spectrum(vis))
-        self._spec_ax.relim()
-        self._spec_ax.autoscale_view(scalex=False, scaley=True)
-        self._spec_canvas.draw_idle()
+        self._redraw_spectrum()
 
     def _update_spectrum_marker(self, ch):
         if not hasattr(self, "_spec_vline"):
@@ -1209,9 +1266,10 @@ class ScaleViewer(tk.Toplevel):
         self._on_params_saved = on_params_saved
         self._wav_params      = dict(wav_params or {})
 
+        from ..detect import max_2d_scales, default_detect_scales
         H, W = cube.shape[1], cube.shape[2]
-        self._max_scales = max(2, int(np.floor(np.log2(min(H, W)))) - 1)
-        n_scales = int(self._wav_params.get("scales", 6))
+        self._max_scales = max_2d_scales(H, W)
+        n_scales = int(self._wav_params.get("scales", self._max_scales))
         n_scales = max(2, min(self._max_scales, n_scales))
         self._wav_params["scales"] = n_scales
 
@@ -1233,8 +1291,12 @@ class ScaleViewer(tk.Toplevel):
         else:
             self._multi_scale_enabled = tk.BooleanVar(value=True)
 
-        # Track which scales are selected in multi-scale mode (initialize up to 10, all True by default)
-        self._scale_selections = {i: tk.BooleanVar(value=True) for i in range(1, 11)}
+        # Default multi-scale selection: the configured detect_scales, else the
+        # three bands below the coarsest (Nmax-1, Nmax-2, Nmax-3).
+        _cfg = self._wav_params.get("detect_scales")
+        self._default_scales = set(_cfg) if _cfg else set(default_detect_scales(n_scales))
+        self._scale_selections = {i: tk.BooleanVar(value=(i in self._default_scales))
+                                  for i in range(1, 11)}
 
         # Detection approach pills in the top bar (replaces channel count)
         _PWL = 160
@@ -1510,11 +1572,18 @@ class ScaleViewer(tk.Toplevel):
         self.maxsize(self.winfo_width(), 9999)
 
     def _on_nscales_changed(self):
+        from ..detect import default_detect_scales
         n_new = int(self._n_scales_var.get())
         if int(self._selected_scale.get()) > n_new - 1:
             self._selected_scale.set(max(1, n_new - 1))
         self._wav_params["scales"]    = n_new
         self._wav_params["use_scale"] = int(self._selected_scale.get())
+        # re-apply the default selection (Nmax-1, Nmax-2, Nmax-3) for the new count
+        self._default_scales = set(default_detect_scales(n_new))
+        for i in range(1, 11):
+            if i not in self._scale_selections:
+                self._scale_selections[i] = tk.BooleanVar()
+            self._scale_selections[i].set(i in self._default_scales)
         self._rebuild_scale_selector()
 
     def _rebuild_scale_selector(self):
@@ -1550,7 +1619,8 @@ class ScaleViewer(tk.Toplevel):
 
         for s in range(1, n_detail + 1):
             if s not in self._scale_selections:
-                self._scale_selections[s] = tk.BooleanVar(value=True)
+                self._scale_selections[s] = tk.BooleanVar(
+                    value=(s in getattr(self, "_default_scales", set())))
 
             cv = tk.Canvas(self._rf, width=_PW, height=_PH,
                            bg=C.CARD_BG, highlightthickness=0, bd=0,

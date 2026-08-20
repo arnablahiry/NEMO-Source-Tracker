@@ -96,6 +96,7 @@ def masked_flow_tvl1(
     img_ref: np.ndarray,
     img_tgt: np.ndarray,
     mask: np.ndarray,
+    pad: int = 16,
 ) -> np.ndarray:
     """TV-L1 optical flow restricted to *mask* pixels.
 
@@ -107,6 +108,13 @@ def masked_flow_tvl1(
     (cast to float32) so that brightness constancy is trivially satisfied
     and the flow tracks shape correspondence rather than intensity changes.
 
+    The solver runs only on a padded bounding box of *mask*, not the whole
+    frame.  Everything outside the mask is zeroed before and clipped after, so
+    the cropped solve is numerically equivalent inside the mask (the ``pad``
+    margin keeps the variational solution clear of the crop boundary) while
+    being dramatically cheaper on large cubes with localized sources — which
+    also keeps the GIL free enough for a responsive GUI.
+
     Parameters
     ----------
     img_ref, img_tgt :
@@ -115,6 +123,9 @@ def masked_flow_tvl1(
         too.
     mask :
         Boolean (H, W) — True where flow should be estimated.
+    pad :
+        Margin (px) added around the mask bounding box before solving, to
+        isolate the in-mask solution from the crop boundary.
 
     Returns
     -------
@@ -122,11 +133,24 @@ def masked_flow_tvl1(
         Shape (2, H, W) float32.  ``flow[0]`` = v (row displacement),
         ``flow[1]`` = u (col displacement).  Zero everywhere outside *mask*.
     """
-    r = (img_ref * mask).astype(np.float64)
-    t = (img_tgt * mask).astype(np.float64)
+    H, W = mask.shape
+    flow = np.zeros((2, H, W), dtype=np.float32)
+    if not mask.any():
+        return flow
+
+    # Solve only on a padded bounding box of the mask — the rest is zero.
+    rows = np.where(mask.any(axis=1))[0]
+    cols = np.where(mask.any(axis=0))[0]
+    y0 = max(0, int(rows[0]) - pad);  y1 = min(H, int(rows[-1]) + 1 + pad)
+    x0 = max(0, int(cols[0]) - pad);  x1 = min(W, int(cols[-1]) + 1 + pad)
+
+    m = mask[y0:y1, x0:x1]
+    r = (img_ref[y0:y1, x0:x1] * m).astype(np.float64)
+    t = (img_tgt[y0:y1, x0:x1] * m).astype(np.float64)
     v, u = optical_flow_tvl1(r, t)
-    flow = np.stack([v, u], axis=0).astype(np.float32)
-    flow[:, ~mask] = 0.0
+    sub = np.stack([v, u], axis=0).astype(np.float32)
+    sub[:, ~m] = 0.0
+    flow[:, y0:y1, x0:x1] = sub
     return flow
 
 
@@ -1164,7 +1188,7 @@ def run_flow_tracker(
     max_gap_channels: int = 5,
     min_displacement: float = 3.0,
     # Stage 5 — source classification
-    wav_scale_idx: int = 3,
+    wav_scale_idx: int | None = None,   # None → use_scale - 1
     wav_abrupt_thresh: float = 0.4,
     flow_iou_thresh: float = 0.25,
     short_det_max: int = 8,
@@ -1266,9 +1290,10 @@ def run_flow_tracker(
 
     if verbose:
         print("[Stage 5] Grouping into sources and removing false detections...")
+    _wav_idx = wav_scale_idx if wav_scale_idx is not None else use_scale - 1
     good_sources, false_dets, src_data, src_colors = classify_sources(
         sources, tracks, detections, flow_seq,
-        wav_scale_idx=wav_scale_idx,
+        wav_scale_idx=_wav_idx,
         wav_abrupt_thresh=wav_abrupt_thresh,
         flow_iou_thresh=flow_iou_thresh,
         short_det_max=short_det_max,
@@ -1352,7 +1377,7 @@ class FlowTracker:
         min_match_overlap: int = 5,
         max_gap_channels: int = 5,
         min_displacement: float = 3.0,
-        wav_scale_idx: int = 3,
+        wav_scale_idx: int | None = None,
         wav_abrupt_thresh: float = 0.5,
         flow_iou_thresh: float = 0.25,
         short_det_max: int = 8,
@@ -1469,9 +1494,11 @@ class FlowTracker:
         _reconcile_splits(tracks, bwd_tracks, verbose=verbose)
         classify_kinematic(tracks, min_displacement=self.min_displacement, verbose=verbose)
         all_sources = group_into_sources(tracks)
+        wav_scale_idx = (self.wav_scale_idx if self.wav_scale_idx is not None
+                         else self.detector.use_scale - 1)
         good_sources, false_dets, src_data, src_colors = classify_sources(
             all_sources, tracks, detections, flow_seq,
-            wav_scale_idx=self.wav_scale_idx,
+            wav_scale_idx=wav_scale_idx,
             wav_abrupt_thresh=self.wav_abrupt_thresh,
             flow_iou_thresh=self.flow_iou_thresh,
             short_det_max=self.short_det_max,
@@ -1606,7 +1633,7 @@ class FlowTracker:
             print(f"\n{'='*52}")
             print(f"  HIERARCHY — linking sources across scales")
             print(f"{'='*52}")
-        hierarchical_sources, _ = build_hierarchical_sources(
+        hierarchical_sources, old_to_hierarchy = build_hierarchical_sources(
             multi_scale_dets, tracks_per_scale, sources_per_scale,
             spatial_overlap_threshold=0.3,
             velocity_tolerance=10.0,
@@ -1614,22 +1641,32 @@ class FlowTracker:
             verbose=verbose,
         )
 
-        # Flatten for legacy compatibility
+        # Flatten, remapping per-scale source IDs → globally unique h_ids so
+        # classify_sources never sees duplicate IDs from different scales.
         all_tracks = []
-        for scale_tracks in tracks_per_scale.values():
+        for scale, scale_tracks in tracks_per_scale.items():
+            for t in scale_tracks:
+                old_sid = t.get('source_id')
+                if old_sid is not None:
+                    t['source_id'] = old_to_hierarchy.get((scale, old_sid), old_sid)
             all_tracks.extend(scale_tracks)
+
         all_sources = []
-        for scale_sources in sources_per_scale.values():
-            all_sources.extend(scale_sources)
+        for scale, scale_sources in sources_per_scale.items():
+            for src in scale_sources:
+                new_id = old_to_hierarchy.get((scale, src['id']), src['id'])
+                all_sources.append(dict(src, id=new_id))
 
         # False-detection filtering on the finest scale
         first_scale = min(detections_per_scale.keys())
         flow_seq = flow_seq_per_scale.get(first_scale) \
             or compute_flow_sequence(detections_per_scale[first_scale], verbose=False)
 
+        wav_scale_idx = (self.wav_scale_idx if self.wav_scale_idx is not None
+                         else self.detector.use_scale - 1)
         good_sources, false_dets, src_data, src_colors = classify_sources(
             all_sources, all_tracks, detections_per_scale[first_scale], flow_seq,
-            wav_scale_idx=self.wav_scale_idx,
+            wav_scale_idx=wav_scale_idx,
             wav_abrupt_thresh=self.wav_abrupt_thresh,
             flow_iou_thresh=self.flow_iou_thresh,
             short_det_max=self.short_det_max,
@@ -1640,7 +1677,7 @@ class FlowTracker:
         )
 
         return TrackingResult(
-            detections=[],
+            detections=detections_per_scale[first_scale],
             flow_seq=flow_seq,
             tracks=all_tracks,
             sources=good_sources,

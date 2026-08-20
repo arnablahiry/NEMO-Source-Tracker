@@ -2,6 +2,28 @@
 from . import _constants as C
 
 
+def set_titlebar_appearance(window) -> None:
+    """Force *window*'s macOS title bar to match the current app theme.
+
+    Matches the NSWindow by its Tk title and sets Aqua / DarkAqua so the
+    native title bar tracks the in-app light/dark theme instead of the system
+    appearance.  No-op off macOS or when PyObjC is unavailable.
+    """
+    try:
+        import AppKit
+        window.update_idletasks()  # ensure the NSWindow exists
+        title = str(window.title())
+        nswin = next((w for w in AppKit.NSApplication.sharedApplication().windows()
+                      if str(w.title()) == title), None)
+        if nswin is None:
+            return
+        name = (AppKit.NSAppearanceNameAqua if C._current_theme == "light"
+                else AppKit.NSAppearanceNameDarkAqua)
+        nswin.setAppearance_(AppKit.NSAppearance.appearanceNamed_(name))
+    except Exception:
+        pass
+
+
 def apply_theme(root_widget, mode: str) -> None:
     """Recursively remap all widget colors from dark to light or vice versa.
 
@@ -50,6 +72,12 @@ def _walk(widget, mapping: dict) -> None:
             widget._refresh(mapping)
         except Exception:
             pass
+
+    # Open child windows (viewers / analysis) get their native title bar
+    # re-tinted to match the new theme too.
+    import tkinter as tk
+    if isinstance(widget, tk.Toplevel):
+        set_titlebar_appearance(widget)
 
     # Recurse to children
     for child in widget.winfo_children():

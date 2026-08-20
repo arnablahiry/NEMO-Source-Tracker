@@ -151,6 +151,31 @@ def active_channels(cube: np.ndarray, threshold_frac: float = 0.05) -> list[int]
     return [int(i) for i in np.where(flux >= thresh)[0]]
 
 
+def max_2d_scales(height: int, width: int) -> int:
+    """Maximum number of starlet planes (detail bands + coarse residual) that
+    fit a *height* × *width* image.
+
+    The à-trous B3-spline kernel at detail band ``j`` spans ~``4·2^(j-1)+1``
+    pixels, so the coarsest meaningful band has ``j ≈ log2(min(H, W))``.  That
+    many detail bands plus the coarse residual gives the total plane count.
+    """
+    m = max(int(min(height, width)), 2)
+    return max(int(np.floor(np.log2(m))), 3)
+
+
+def default_detect_scales(scales: int) -> list[int]:
+    """Default multi-scale detection bands: the three below the coarsest.
+
+    Detail bands run ``1 … scales-1`` (the last plane is the coarse residual).
+    The coarsest detail band, ``Nmax = scales-1``, blends neighbouring sources
+    into one blob, so it is *excluded* by default; the default selection is the
+    three bands below it — ``Nmax-1, Nmax-2, Nmax-3`` — and never the coarse
+    residual.
+    """
+    nmax = scales - 1                      # coarsest detail band
+    return sorted({s for s in (nmax - 1, nmax - 2, nmax - 3) if s >= 1})
+
+
 # ---------------------------------------------------------------------------
 # Result container
 # ---------------------------------------------------------------------------
@@ -202,13 +227,17 @@ def reference_sigmas_from_mean_map(
     """
     if channel_list is None:
         channel_list = list(range(cube.shape[0]))
+    n_ch     = max(len(channel_list), 1)
     mean_map = cube[channel_list].mean(axis=0).astype(np.float32)
     coeffs   = starlet_transform(mean_map, scales=scales)
     n_detail = coeffs.shape[0] - 1
+    # Mean-map noise is σ/√N, so scale the per-scale MAD back up by √N to
+    # recover the single-channel noise estimate at each wavelet scale.
+    root_n   = np.sqrt(n_ch)
     sigmas   = np.empty(n_detail, dtype=np.float64)
     for i in range(n_detail):
         c = coeffs[i]
-        sigmas[i] = 1.4826 * np.median(np.abs(c - np.median(c))) + 1e-12
+        sigmas[i] = 1.4826 * np.median(np.abs(c - np.median(c))) * root_n + 1e-12
     return sigmas
 
 
@@ -433,7 +462,7 @@ def detect_all_scales(
     from .hierarchy import PerChannelScaleDetections
 
     if detect_scales is None:
-        detect_scales = list(range(1, min(scales, 5)))
+        detect_scales = default_detect_scales(scales)
     if channel_list is None:
         channel_list = list(range(cube.shape[0]))
 
@@ -601,7 +630,8 @@ class WaveletDetector:
         self.thresh = thresh
         self.use_mean_map_sigma = use_mean_map_sigma
         self.detect_all_scales = detect_all_scales
-        self.detect_scales = detect_scales if detect_scales is not None else list(range(1, min(scales, 5)))
+        self.detect_scales = (detect_scales if detect_scales is not None
+                              else default_detect_scales(scales))
 
     def detect(
         self,

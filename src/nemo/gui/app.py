@@ -243,20 +243,8 @@ class NemoGUI(tk.Tk):
     def _set_window_appearance(self):
         """Force the macOS title bar to match the app theme, overriding the
         system (light/dark) appearance."""
-        try:
-            import AppKit
-            self.update_idletasks()  # make sure the NSWindow exists
-            title = str(self.title())
-            nswin = next((w for w in AppKit.NSApplication.sharedApplication().windows()
-                          if str(w.title()) == title), None)
-            if nswin is None:
-                return
-            name = (AppKit.NSAppearanceNameAqua if C._current_theme == "light"
-                    else AppKit.NSAppearanceNameDarkAqua)
-            nswin.setAppearance_(AppKit.NSAppearance.appearanceNamed_(name))
-        except Exception:
-            # Non-macOS / PyObjC unavailable — leave the title bar as-is.
-            pass
+        from ._theme import set_titlebar_appearance
+        set_titlebar_appearance(self)
 
     def _add_native_banner_overlay(self, logo_path, disp_w, disp_h, reserved_bottom):
         """Overlay a Retina-aware NSImageView over the banner image.
@@ -444,8 +432,8 @@ class NemoGUI(tk.Tk):
             self.cards[2].btn_flow_view.disable()
         # Disable all card 3 buttons
         if len(self.cards) > 3:
+            self.cards[3].btn_fd_params.disable()
             self.cards[3].btn_view_sources.disable()
-            self.cards[3].btn_combined.disable()
             self.cards[3].btn_individual.disable()
         # Re-enable theme button on reset
         self._enable_theme_button()
@@ -458,7 +446,9 @@ class NemoGUI(tk.Tk):
     def refresh_gif_clock(self):
         union = set()
         for card in self.cards:
-            union.update(card._gif_frames_by_ch.keys())
+            # Prefer the lazy channel list; fall back to any eager frame dict.
+            union.update(getattr(card, "_gif_channels", None)
+                         or card._gif_frames_by_ch.keys())
         new_chs = sorted(union)
         if not new_chs:
             return
@@ -494,13 +484,13 @@ def launch():
     from ._theme import apply_theme
     p = argparse.ArgumentParser(prog="nemo-gui", add_help=False)
     g = p.add_mutually_exclusive_group()
-    g.add_argument("--light", action="store_true", help="Launch in light mode")
-    g.add_argument("--dark",  action="store_true", help="Launch in dark mode (default)")
+    g.add_argument("--light", action="store_true", help="Launch in light mode (default)")
+    g.add_argument("--dark",  action="store_true", help="Launch in dark mode")
     args, _ = p.parse_known_args()
 
     app = NemoGUI()
-    if args.light:
-        apply_theme(app, "light")
+    if args.dark:
+        apply_theme(app, "dark")
         app._set_window_appearance()
         app._reload_banner()
         for card in app.cards:

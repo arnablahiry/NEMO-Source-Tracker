@@ -41,43 +41,71 @@ def _frame_to_pil(fig, dpi, hires_factor: int = 3):
         (CARD_W, CARD_H), PilImage.LANCZOS).convert("RGB")
 
 
+def _subsample_for_stats(cube: np.ndarray, max_elems: int = 4_000_000):
+    """Strided view (no copy) capped at ~max_elems voxels for fast statistics.
+
+    Whole-cube min/max/percentile reductions stall the UI on large cubes; a
+    strided subsample gives visually identical display stats for free.
+    """
+    if cube.size <= max_elems or cube.ndim != 3:
+        return cube
+    step = int(np.ceil(np.sqrt(cube.size / max_elems)))
+    return cube[:, ::step, ::step]
+
+
 def _cube_norm(cube: np.ndarray):
-    flat = cube.ravel()
-    vmin = float(np.nanmin(flat));  vmax = float(np.nanmax(flat))
+    sample = _subsample_for_stats(cube)
+    vmin = float(np.nanmin(sample));  vmax = float(np.nanmax(sample))
     if vmax <= vmin:
         vmax = vmin + 1e-9
     return Normalize(vmin=vmin, vmax=vmax)
 
 
-def _build_wavelet_frames(cube: np.ndarray, detections: list,
-                          beam=None, pixscale=None) -> dict:
+def _wavelet_renderer(cube: np.ndarray, detections: list,
+                      beam=None, pixscale=None):
+    """Return (channels, render_fn) where render_fn(ch) -> PIL.Image for one frame.
+
+    All shared/expensive setup happens once here; render_fn does only the
+    per-channel matplotlib work, so it can be called lazily on the main thread.
+    """
     norm = _cube_norm(cube)
     dpi  = 72;  fsz = CARD_W / dpi
     light = C._current_theme == "light"
     cmap = "cubehelix_r" if light else "inferno"
     contour_color = "black" if light else "white"
-    frames: dict = {}
-    for d in detections:
+    H, W = cube.shape[1], cube.shape[2]
+    det_by_ch = {d.channel: d for d in detections}
+    channels  = sorted(det_by_ch)
+
+    def render(ch):
+        d = det_by_ch[ch]
         fig = plt.Figure(figsize=(fsz, fsz), dpi=dpi, facecolor="#0a0a14")
         ax  = fig.add_axes([0, 0, 1, 1]);  ax.set_axis_off()
-        ax.imshow(cube[d.channel], cmap=cmap, norm=norm, origin="lower")
+        ax.imshow(cube[ch], cmap=cmap, norm=norm, origin="lower")
         for mask in d.footprint_masks:
             ax.contour(mask.astype(float), [0.5],
                        colors=[contour_color], linewidths=0.6, alpha=0.85)
-        H, W = cube.shape[1], cube.shape[2]
         _draw_beam(ax, H, W, beam, pixscale, light)
-        frames[d.channel] = _frame_to_pil(fig, dpi)
-    return frames
+        return _frame_to_pil(fig, dpi)
+
+    return channels, render
 
 
-def _build_multi_scale_frames(cube: np.ndarray, multi_scale_dets: list,
-                              beam=None, pixscale=None) -> dict:
-    """Build preview frames from multi-scale detections with opacity-graded contours."""
+def _build_wavelet_frames(cube: np.ndarray, detections: list,
+                          beam=None, pixscale=None) -> dict:
+    channels, render = _wavelet_renderer(cube, detections, beam, pixscale)
+    return {ch: render(ch) for ch in channels}
+
+
+def _multi_scale_renderer(cube: np.ndarray, multi_scale_dets: list,
+                          beam=None, pixscale=None):
+    """(channels, render_fn) for multi-scale detections with opacity-graded contours."""
     norm = _cube_norm(cube)
     dpi  = 72;  fsz = CARD_W / dpi
     light = C._current_theme == "light"
     cmap  = "cubehelix_r" if light else "inferno"
     cv    = 0.0 if light else 1.0  # black / white contour base
+    H, W = cube.shape[1], cube.shape[2]
 
     all_scales = sorted({s for sd in multi_scale_dets for s in sd.scales.keys()})
     n = len(all_scales)
@@ -86,12 +114,14 @@ def _build_multi_scale_frames(cube: np.ndarray, multi_scale_dets: list,
         rank = all_scales.index(scale_idx)
         return 0.95 if n <= 1 else 0.95 - rank * 0.70 / (n - 1)
 
-    frames: dict = {}
-    H, W = cube.shape[1], cube.shape[2]
-    for sd in multi_scale_dets:
+    sd_by_ch = {sd.channel: sd for sd in multi_scale_dets}
+    channels = sorted(sd_by_ch)
+
+    def render(ch):
+        sd = sd_by_ch[ch]
         fig = plt.Figure(figsize=(fsz, fsz), dpi=dpi, facecolor="#0a0a14")
         ax  = fig.add_axes([0, 0, 1, 1]);  ax.set_axis_off()
-        ax.imshow(cube[sd.channel], cmap=cmap, norm=norm, origin="lower")
+        ax.imshow(cube[ch], cmap=cmap, norm=norm, origin="lower")
         for scale_idx in all_scales:
             if scale_idx not in sd.scales:
                 continue
@@ -101,30 +131,38 @@ def _build_multi_scale_frames(cube: np.ndarray, multi_scale_dets: list,
                 ax.contour(mask.astype(float), [0.5],
                            colors=[[cv, cv, cv, a]], linewidths=0.6)
         _draw_beam(ax, H, W, beam, pixscale, light)
-        frames[sd.channel] = _frame_to_pil(fig, dpi)
-    return frames
+        return _frame_to_pil(fig, dpi)
+
+    return channels, render
 
 
-def _build_flow_frames(cube: np.ndarray, flow_seq: list,
-                       detections: list | None = None,
-                       beam=None, pixscale=None) -> dict:
+def _build_multi_scale_frames(cube: np.ndarray, multi_scale_dets: list,
+                              beam=None, pixscale=None) -> dict:
+    channels, render = _multi_scale_renderer(cube, multi_scale_dets, beam, pixscale)
+    return {ch: render(ch) for ch in channels}
+
+
+def _flow_renderer(cube: np.ndarray, flow_seq: list,
+                   detections: list | None = None,
+                   beam=None, pixscale=None):
+    """(channels, render_fn) for the optical-flow quiver + footprint overlay."""
     norm = _cube_norm(cube)
     dpi  = 72;  fsz = CARD_W / dpi
     det_by_ch = {d.channel: d for d in (detections or [])}
     light = C._current_theme == "light"
     cmap = "cubehelix_r" if light else "inferno"
     contour_color = "black" if light else "white"
-    _H, _W = cube.shape[1], cube.shape[2]
-    _qs = max(min(_H, _W) // 28, 2)
+    H, W = cube.shape[1], cube.shape[2]
+    qs = max(min(H, W) // 28, 2)
     _qcmap = "cool" if C._current_theme == "dark" else "viridis"
-    frames: dict = {}
-    for ch_ref, _ch_tgt, flow, _mask in flow_seq:
-        img_data = cube[ch_ref]
-        H, W = img_data.shape
+    flow_by_ch = {cr: fl for cr, _ct, fl, _m in flow_seq}
+    channels   = sorted(flow_by_ch)
+
+    def render(ch):
+        flow = flow_by_ch[ch]
         fig = plt.Figure(figsize=(fsz, fsz), dpi=dpi, facecolor="#0a0a14")
         ax  = fig.add_axes([0, 0, 1, 1]);  ax.set_axis_off()
-        ax.imshow(img_data, cmap=cmap, norm=norm, origin="lower")
-        qs = _qs
+        ax.imshow(cube[ch], cmap=cmap, norm=norm, origin="lower")
         ys = np.arange(0, H, qs);  xs = np.arange(0, W, qs)
         Xq, Yq = np.meshgrid(xs, ys)
         u = flow[1][ys[:, None], xs[None, :]].ravel()
@@ -135,14 +173,22 @@ def _build_flow_frames(cube: np.ndarray, flow_seq: list,
             ax.quiver(Xq.ravel(), Yq.ravel(), u*sc, v*sc,
                       mag, cmap=_qcmap, angles="xy", scale_units="xy", scale=1,
                       width=0.003, headwidth=3, alpha=0.85, clim=(0, pk))
-        d = det_by_ch.get(ch_ref)
+        d = det_by_ch.get(ch)
         if d:
             for mask in d.footprint_masks:
                 ax.contour(mask.astype(float), [0.5],
                            colors=[contour_color], linewidths=0.5, alpha=0.4)
         _draw_beam(ax, H, W, beam, pixscale, light)
-        frames[ch_ref] = _frame_to_pil(fig, dpi)
-    return frames
+        return _frame_to_pil(fig, dpi)
+
+    return channels, render
+
+
+def _build_flow_frames(cube: np.ndarray, flow_seq: list,
+                       detections: list | None = None,
+                       beam=None, pixscale=None) -> dict:
+    channels, render = _flow_renderer(cube, flow_seq, detections, beam, pixscale)
+    return {ch: render(ch) for ch in channels}
 
 
 def _draw_beam(ax, H, W, beam, pixscale, light: bool) -> None:
@@ -192,13 +238,16 @@ def _draw_annotations(ax, H, W, beam, pixscale, kpc_per_pix, light: bool) -> Non
                  xy_offset=(corner_offset, corner_offset), color=bar_color)
 
 
-def _build_sources_frames(cube: np.ndarray, tracks: list, sources: list,
-                          beam=None, pixscale=None) -> dict:
+def _sources_renderer(cube: np.ndarray, tracks: list, sources: list,
+                      beam=None, pixscale=None):
+    """(channels, render_fn) for the flat per-source contours + bboxes overlay."""
     from matplotlib.patches import Rectangle as _Rect
     norm = _cube_norm(cube)
     dpi  = 72;  fsz = CARD_W / dpi
     light = C._current_theme == "light"
     cmap = "cubehelix_r" if light else "inferno"
+    H, W = cube.shape[1], cube.shape[2]
+    PAD_BB = 4
 
     tracks_by_id = {t["id"]: t for t in tracks}
     src_color = _source_colors(sources)
@@ -213,16 +262,12 @@ def _build_sources_frames(cube: np.ndarray, tracks: list, sources: list,
                 ch_dict.setdefault(ch, []).append(mask)
         src_ch_masks[s["id"]] = ch_dict
 
-    all_channels = sorted({ch for d in src_ch_masks.values() for ch in d})
-    frames: dict = {}
-    PAD_BB = 4
+    channels = sorted({ch for d in src_ch_masks.values() for ch in d})
 
-    for ch in all_channels:
-        img_data = cube[ch]
-        H, W = img_data.shape
+    def render(ch):
         fig = plt.Figure(figsize=(fsz, fsz), dpi=dpi, facecolor="#0a0a14")
         ax  = fig.add_axes([0, 0, 1, 1]);  ax.set_axis_off()
-        ax.imshow(img_data, cmap=cmap, norm=norm, origin="lower")
+        ax.imshow(cube[ch], cmap=cmap, norm=norm, origin="lower")
 
         for sid, ch_dict in src_ch_masks.items():
             masks = ch_dict.get(ch)
@@ -251,8 +296,15 @@ def _build_sources_frames(cube: np.ndarray, tracks: list, sources: list,
                                   fc=lcol, ec=lcol, lw=1.0),
                         zorder=6)
         _draw_beam(ax, H, W, beam, pixscale, light)
-        frames[ch] = _frame_to_pil(fig, dpi)
-    return frames
+        return _frame_to_pil(fig, dpi)
+
+    return channels, render
+
+
+def _build_sources_frames(cube: np.ndarray, tracks: list, sources: list,
+                          beam=None, pixscale=None) -> dict:
+    channels, render = _sources_renderer(cube, tracks, sources, beam, pixscale)
+    return {ch: render(ch) for ch in channels}
 
 
 def _scale_alpha(scale, all_scales):
@@ -264,10 +316,10 @@ def _scale_alpha(scale, all_scales):
     return 0.95 - rank * 0.70 / (n - 1)
 
 
-def _build_multi_scale_flow_frames(cube, flow_seq_per_scale, detections_per_scale,
-                                   coarsest_scale, beam=None, pixscale=None) -> dict:
-    """Flow GIF: per-scale footprint contours (graded opacity) for every scale,
-    quiver arrows only for the *coarsest* scale."""
+def _multi_scale_flow_renderer(cube, flow_seq_per_scale, detections_per_scale,
+                               coarsest_scale, beam=None, pixscale=None):
+    """(channels, render_fn): per-scale footprint contours (graded opacity) for
+    every scale, quiver arrows only for the *coarsest* scale."""
     norm  = _cube_norm(cube)
     dpi   = 72;  fsz = CARD_W / dpi
     light = C._current_theme == "light"
@@ -285,8 +337,8 @@ def _build_multi_scale_flow_frames(cube, flow_seq_per_scale, detections_per_scal
     coarse_flow = {cr: fl for cr, _ct, fl, _m in flow_seq_per_scale.get(coarsest_scale, [])}
 
     channels = sorted({cr for fseq in flow_seq_per_scale.values() for cr, *_ in fseq})
-    frames: dict = {}
-    for ch in channels:
+
+    def render(ch):
         fig = plt.Figure(figsize=(fsz, fsz), dpi=dpi, facecolor="#0a0a14")
         ax  = fig.add_axes([0, 0, 1, 1]);  ax.set_axis_off()
         ax.imshow(cube[ch], cmap=cmap, norm=norm, origin="lower")
@@ -315,8 +367,16 @@ def _build_multi_scale_flow_frames(cube, flow_seq_per_scale, detections_per_scal
                 ax.contour(mask.astype(float), [0.5],
                            colors=[[cv, cv, cv, a]], linewidths=0.5)
         _draw_beam(ax, H, W, beam, pixscale, light)
-        frames[ch] = _frame_to_pil(fig, dpi)
-    return frames
+        return _frame_to_pil(fig, dpi)
+
+    return channels, render
+
+
+def _build_multi_scale_flow_frames(cube, flow_seq_per_scale, detections_per_scale,
+                                   coarsest_scale, beam=None, pixscale=None) -> dict:
+    channels, render = _multi_scale_flow_renderer(
+        cube, flow_seq_per_scale, detections_per_scale, coarsest_scale, beam, pixscale)
+    return {ch: render(ch) for ch in channels}
 
 
 def _hsrc_channel_masks(hierarchical_sources, tracks_per_scale):
@@ -338,15 +398,15 @@ def _hsrc_channel_masks(hierarchical_sources, tracks_per_scale):
     return out
 
 
-def _build_hierarchical_sources_frames(cube, hierarchical_sources, tracks_per_scale,
-                                       multi_scale_dets, beam=None, pixscale=None) -> dict:
-    """Sources GIF: each tree one colour, per-scale opacity (coarse faint,
+def _hierarchical_sources_renderer(cube, hierarchical_sources, tracks_per_scale,
+                                   multi_scale_dets, beam=None, pixscale=None):
+    """(channels, render_fn): each tree one colour, per-scale opacity (coarse faint,
     leaves bright); bounding box only around the largest (root) contour."""
     from matplotlib.patches import Rectangle as _Rect
     from ..hierarchy import assign_tree_colors, assign_tree_names
 
     if not hierarchical_sources:
-        return {}
+        return [], None
     norm  = _cube_norm(cube)
     dpi   = 72;  fsz = CARD_W / dpi
     light = C._current_theme == "light"
@@ -359,9 +419,9 @@ def _build_hierarchical_sources_frames(cube, hierarchical_sources, tracks_per_sc
     h_by_id  = {h.id: h for h in hierarchical_sources}
     ch_masks = _hsrc_channel_masks(hierarchical_sources, tracks_per_scale)
 
-    all_channels = sorted({ch for d in ch_masks.values() for ch in d})
-    frames: dict = {}
-    for ch in all_channels:
+    channels = sorted({ch for d in ch_masks.values() for ch in d})
+
+    def render(ch):
         fig = plt.Figure(figsize=(fsz, fsz), dpi=dpi, facecolor="#0a0a14")
         ax  = fig.add_axes([0, 0, 1, 1]);  ax.set_axis_off()
         ax.imshow(cube[ch], cmap=cmap, norm=norm, origin="lower")
@@ -395,8 +455,18 @@ def _build_hierarchical_sources_frames(cube, hierarchical_sources, tracks_per_sc
                                       fc=(r, g, b), ec=(r, g, b), lw=1.0),
                             zorder=6)
         _draw_beam(ax, H, W, beam, pixscale, light)
-        frames[ch] = _frame_to_pil(fig, dpi)
-    return frames
+        return _frame_to_pil(fig, dpi)
+
+    return channels, render
+
+
+def _build_hierarchical_sources_frames(cube, hierarchical_sources, tracks_per_scale,
+                                       multi_scale_dets, beam=None, pixscale=None) -> dict:
+    channels, render = _hierarchical_sources_renderer(
+        cube, hierarchical_sources, tracks_per_scale, multi_scale_dets, beam, pixscale)
+    if render is None:
+        return {}
+    return {ch: render(ch) for ch in channels}
 
 
 # ---------------------------------------------------------------------------
@@ -442,6 +512,10 @@ class CubeCard(tk.Frame):
         self._gif_tk_by_ch:     dict = {}
         self._gif_canvas             = None
         self._gif_last_ch            = None
+        # Lazy frame rendering: render one channel on demand on the main thread
+        # (keeps the worker free of GIL-heavy matplotlib so the UI stays smooth).
+        self._gif_render             = None   # callable(ch) -> PIL.Image | None
+        self._gif_channels: list     = []
 
         bg = C.CARD_BG if active else C.CARD_OFF
 
@@ -698,72 +772,56 @@ class CubeCard(tk.Frame):
         self._flow_active = active
         self._flow_bg     = bg
         self._flow_params = dict(min_match_overlap=5, max_gap_channels=5)
-        self._fd_defaults = dict(wav_abrupt_thresh=0.5, flow_iou_thresh=0.25,
-                                 short_det_max=8)
-        self._false_det_params = dict(self._fd_defaults)
         self._flow_param_sliders: list = []   # registry for enable/disable
         self._flow_caption_lbls: list  = []   # labels that dim when disabled
 
-        GROUP_H, FDBTN_H, GAP = 132, 44, 6
-        VIEW_H = max(CARD_H - GROUP_H - GAP - FDBTN_H - GAP, BTN_H)
+        GAP, VIEW_H = 6, 34
 
-        # ── Optical Flow Parameters group box ────────────────────────────────
+        # ── Optical Flow Parameters: heading + description + slider per param ──
         of_specs = [
-            ("flow", "min_match_overlap", "Min match overlap (px)", 1, 100, 1, "int"),
-            ("flow", "max_gap_channels",  "Max channel gap bridged", 1, 50, 1, "int"),
+            ("flow", "min_match_overlap", "Min match overlap (px)",
+             "Pixels a track's mask must share with a detection to link them "
+             "across channels — higher is stricter.", 1, 100, 1, "int"),
+            ("flow", "max_gap_channels", "Max channel gap bridged",
+             "Channels a source may vanish for before its track is ended.",
+             1, 50, 1, "int"),
         ]
+        # Param box hugs its content; View Flow button fills the space below it.
         self._build_group_box(parent, "Optical Flow Parameters", of_specs,
-                              bg, active, GROUP_H)
-
-        # ── False Detection Parameters button (opens dialog) ─────────────────
-        self.btn_fd_params = _FlatBtn(parent, "False Detection\nParameters",
-                                      self._open_false_det_params, bg_on=C.ACCENT,
-                                      active=False, height=FDBTN_H,
-                                      font=("Arial", 9, "bold"))
-        self.btn_fd_params.pack(side=tk.TOP, fill=tk.X, pady=(GAP, 0))
-
-        # ── View Flow button (fills remaining height) ────────────────────────
-        self.btn_flow_view = _FlatBtn(parent, "View Flow\nPer Channel",
+                              bg, active)
+        self.btn_flow_view = _FlatBtn(parent, "View Flow Per Channel",
                                       self._view_flow, bg_on=C.ACCENT, active=False,
-                                      height=VIEW_H, font=("Arial", 10, "bold"))
-        self.btn_flow_view.pack(side=tk.TOP, fill=tk.X, pady=(GAP, 0))
+                                      height=VIEW_H, font=("Arial", 9, "bold"))
+        self.btn_flow_view.pack(side=tk.TOP, fill=tk.BOTH, expand=True, pady=(GAP, 0))
 
         self._set_flow_params_enabled(active)
 
     def _build_group_box(self, parent, title: str, specs: list, bg: str,
-                         active: bool, height: int):
-        """A titled, faint-bordered box holding param description cards + sliders."""
-        CAP_H, SL_H, CAP_PAD, SL_PAD = 22, 24, 2, 6
-        outer = tk.Frame(parent, bg=C.DIM, padx=1, pady=1, height=height)
-        outer.pack_propagate(False)
-        outer.pack(side=tk.TOP, fill=tk.X)
+                         active: bool):
+        """Titled box: each param shows its heading, a description line, then
+        its slider (no per-heading cards)."""
+        SL_H = 24
+        fg = C.STEP_LABEL_TXT if active else C.STEP_LABEL_DIS
+        outer = tk.Frame(parent, bg=C.DIM, padx=1, pady=1)
+        outer.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
         inner = tk.Frame(outer, bg=bg)
         inner.pack(fill=tk.BOTH, expand=True)
-        title_lbl = tk.Label(inner, text=title, bg=bg,
-                             fg=C.STEP_LABEL_TXT if active else C.STEP_LABEL_DIS,
+        title_lbl = tk.Label(inner, text=title, bg=bg, fg=fg,
                              font=("Helvetica", 8, "bold"))
-        title_lbl.pack(side=tk.TOP, anchor="w", padx=5, pady=(3, 4))
+        title_lbl.pack(side=tk.TOP, anchor="w", padx=5, pady=(4, 6))
         self._flow_caption_lbls.append(title_lbl)
-        for i, (group, key, name, lo, hi, res, kind) in enumerate(specs):
-            self._build_param_card(inner, name, bg, active, CAP_H, CAP_PAD)
+        for group, key, name, desc, lo, hi, res, kind in specs:
+            nlbl = tk.Label(inner, text=name, bg=bg, fg=fg,
+                            font=("Helvetica", 8, "bold"), anchor="w")
+            nlbl.pack(side=tk.TOP, anchor="w", padx=6, pady=(2, 0))
+            self._flow_caption_lbls.append(nlbl)
+            dlbl = tk.Label(inner, text=desc, bg=bg, fg=fg,
+                            font=("Helvetica", 7), justify="left",
+                            wraplength=BTN_W - 16, anchor="w")
+            dlbl.pack(side=tk.TOP, anchor="w", padx=6, pady=(0, 3))
+            self._flow_caption_lbls.append(dlbl)
             self._build_param_slider(inner, group, key, lo, hi, res, kind,
-                                     active=active, height=SL_H,
-                                     pad=(0 if i == len(specs) - 1 else SL_PAD))
-
-    def _build_param_card(self, parent, text: str, bg: str, active: bool,
-                          height: int, pad: int):
-        """A small faint-bordered card describing a single parameter."""
-        card = tk.Frame(parent, bg=C.DIM, padx=1, pady=1, height=height)
-        card.pack_propagate(False)
-        card.pack(side=tk.TOP, fill=tk.X, padx=4, pady=(0, pad))
-        inner = tk.Frame(card, bg=bg)
-        inner.pack(fill=tk.BOTH, expand=True)
-        lbl = tk.Label(inner, text=text, bg=bg,
-                       fg=C.STEP_LABEL_TXT if active else C.STEP_LABEL_DIS,
-                       font=("Helvetica", 8, "bold"), justify="left",
-                       wraplength=BTN_W - 18)
-        lbl.pack(side=tk.LEFT, padx=4)
-        self._flow_caption_lbls.append(lbl)
+                                     active=active, height=SL_H, pad=4)
 
     def _build_param_slider(self, parent, group: str, key: str,
                             lo, hi, res, kind: str, active: bool,
@@ -817,24 +875,27 @@ class CubeCard(tk.Frame):
             btn.enable() if on else btn.disable()
 
     def _reset_flow_controls(self):
-        """Restore optical-flow sliders and false-detection params to defaults."""
+        """Restore optical-flow sliders to defaults."""
         self._flow_params = dict(min_match_overlap=5, max_gap_channels=5)
-        self._false_det_params = dict(self._fd_defaults)
         for w in getattr(self, "_flow_param_sliders", []):
             w["set"](w["default"])
 
     def _build_buttons_step3(self, bg: str, active: bool):
+        # false-detection parameters now live on this (source-classification) card
+        self._fd_defaults = dict(wav_abrupt_thresh=0.5, flow_iou_thresh=0.25,
+                                 short_det_max=8)
+        self._false_det_params = dict(self._fd_defaults)
+
         h = self._stack_height(4)
+        self.btn_fd_params = _FlatBtn(self._btn_zone, "False Detection\nParameters",
+                                      self._open_false_det_params, bg_on=C.ACCENT,
+                                      active=False, height=h, font=("Arial", 9, "bold"))
         self.btn_view_sources = _FlatBtn(self._btn_zone, "View Sources",
                                          self._view_sources_per_channel,
                                          bg_on=C.RUN_COLOR, active=False,
                                          font=("Arial", 10, "bold"),
                                          height=h,
                                          special_color="yellow")
-        self.btn_combined = _FlatBtn(self._btn_zone, "Combined\nAnalysis",
-                                     self._combined_analysis,
-                                     bg_on=C.ACCENT, active=False,
-                                     height=h, font=("Arial", 10, "bold"))
         self.btn_individual = _FlatBtn(self._btn_zone, "Individual\nAnalysis",
                                        self._individual_analysis,
                                        bg_on=C.ACCENT, active=False,
@@ -844,7 +905,7 @@ class CubeCard(tk.Frame):
                                   bg_on=C.ACCENT, active=True,
                                   height=h, font=("Arial", 10, "bold"),
                                   special_color="red")
-        self._stack((self.btn_view_sources, self.btn_combined,
+        self._stack((self.btn_fd_params, self.btn_view_sources,
                      self.btn_individual, self.btn_reset))
 
     def _build_buttons_generic(self, bg: str):
@@ -1029,39 +1090,32 @@ class CubeCard(tk.Frame):
 
     @staticmethod
     def _cube_norm(cube: np.ndarray):
-        flat = cube.ravel()
-        vmin = float(np.nanmin(flat));  vmax = float(np.nanmax(flat))
-        if vmax <= vmin:
-            vmax = vmin + 1e-9
-        return Normalize(vmin=vmin, vmax=vmax)
+        return _cube_norm(cube)
 
     def _render_wavelet_gif(self, cube: np.ndarray, detections: list):
         c0 = self._app.cards[0] if self._app else None
-        self._gif_frames_by_ch = _build_wavelet_frames(
+        self._set_lazy_gif(*_wavelet_renderer(
             cube, detections,
             beam=c0.beam if c0 else None,
             pixscale=c0.pixscale if c0 else None,
-        )
-        self._gif_tk_by_ch = {}
+        ))
 
     def _render_flow_gif(self, cube: np.ndarray, flow_seq: list):
         c0  = self._app.cards[0] if self._app else None
         det = self._app.cards[1].detections if self._app else None
-        self._gif_frames_by_ch = _build_flow_frames(
+        self._set_lazy_gif(*_flow_renderer(
             cube, flow_seq, det,
             beam=c0.beam if c0 else None,
             pixscale=c0.pixscale if c0 else None,
-        )
-        self._gif_tk_by_ch = {}
+        ))
 
     def _render_sources_gif(self, cube: np.ndarray, tracks: list, sources: list):
         c0 = self._app.cards[0] if self._app else None
-        self._gif_frames_by_ch = _build_sources_frames(
+        self._set_lazy_gif(*_sources_renderer(
             cube, tracks, sources,
             beam=c0.beam if c0 else None,
             pixscale=c0.pixscale if c0 else None,
-        )
-        self._gif_tk_by_ch = {}
+        ))
 
     def _render_scale_preview(self, cube: np.ndarray, wav_p: dict):
         from ..detect import starlet_transform, active_channels
@@ -1102,6 +1156,25 @@ class CubeCard(tk.Frame):
     # Coordinated GIF
     # ------------------------------------------------------------------ #
 
+    def _set_lazy_gif(self, channels, render_fn):
+        """Install a lazy per-channel frame renderer.
+
+        Nothing is rendered now; each channel's frame is produced on first
+        display in ``show_gif_for_channel`` and cached.  This keeps matplotlib
+        on the main thread and off the pipeline worker.
+        """
+        self._gif_render       = render_fn
+        self._gif_channels     = list(channels)
+        self._gif_frames_by_ch = {}
+        self._gif_tk_by_ch     = {}
+
+    def _set_eager_gif(self, frames: dict):
+        """Install a pre-rendered {channel: PIL.Image} frame dict (no lazy render)."""
+        self._gif_render       = None
+        self._gif_channels     = sorted(frames)
+        self._gif_frames_by_ch = frames
+        self._gif_tk_by_ch     = {}
+
     def _install_gif_canvas(self):
         self._clear_preview()
         self._gif_canvas = tk.Canvas(self._preview_frame, width=CARD_W, height=CARD_H,
@@ -1112,17 +1185,24 @@ class CubeCard(tk.Frame):
     def show_gif_for_channel(self, ch: int):
         if self._preview_state != "figure":
             return
-        if not self._gif_frames_by_ch:
+        # Render this channel lazily on first display, then cache the PIL image.
+        pil = self._gif_frames_by_ch.get(ch)
+        if pil is None and self._gif_render is not None and ch in self._gif_channels:
+            try:
+                pil = self._gif_render(ch)
+            except Exception:
+                pil = None
+            if pil is not None:
+                self._gif_frames_by_ch[ch] = pil
+        if pil is None:
             return
         if self._gif_canvas is None or not self._gif_canvas.winfo_exists():
             self._install_gif_canvas()
         if ch == self._gif_last_ch:
             return
-        if ch not in self._gif_frames_by_ch:
-            return
         from PIL import ImageTk
         if ch not in self._gif_tk_by_ch:
-            self._gif_tk_by_ch[ch] = ImageTk.PhotoImage(self._gif_frames_by_ch[ch])
+            self._gif_tk_by_ch[ch] = ImageTk.PhotoImage(pil)
         self._gif_canvas.delete("all")
         self._gif_canvas.create_image(0, 0, anchor="nw",
                                       image=self._gif_tk_by_ch[ch])
@@ -1146,22 +1226,53 @@ class CubeCard(tk.Frame):
         )
         if not path:
             return
+        # The file read + scaling can take seconds on large cubes; run them off
+        # the UI thread so the app stays responsive, then finish on the main
+        # thread (matplotlib rendering must happen there).
+        self.btn_load.disable()
+        self._step_label.configure(text="Loading…")
+
+        q: queue.Queue = queue.Queue()
+
+        def _work():
+            try:
+                cube, beam, pixscale, vel, kpc_per_pix = load_cube_file(path)
+                scaled = _apply_scaling(cube, self.scaling)
+                q.put(("ok", cube, scaled, beam, pixscale, vel, kpc_per_pix))
+            except Exception as exc:  # noqa: BLE001 — surfaced to the user
+                q.put(("err", str(exc)))
+
+        threading.Thread(target=_work, daemon=True).start()
+        self.after(40, lambda: self._finish_load_cube(q, path))
+
+    def _finish_load_cube(self, q: queue.Queue, path: str):
         try:
-            cube, beam, pixscale, vel, kpc_per_pix = load_cube_file(path)
-        except Exception as exc:
-            messagebox.showerror("Load error", str(exc))
+            msg = q.get_nowait()
+        except queue.Empty:
+            self.after(40, lambda: self._finish_load_cube(q, path))
             return
+
+        self.btn_load.enable()
+        if msg[0] == "err":
+            self._step_label.configure(text=self.name)
+            messagebox.showerror("Load error", msg[1])
+            return
+
+        _, cube, scaled, beam, pixscale, vel, kpc_per_pix = msg
         self.cube_raw    = cube
-        self.cube        = _apply_scaling(cube, self.scaling)
+        self.cube        = scaled
         self.vel_array   = vel
         self.filepath    = path
         self.beam        = beam
         self.pixscale    = pixscale
         self.kpc_per_pix = kpc_per_pix
+        self._step_label.configure(text=self.name)
         self._render_moment0()
         self.btn_view.enable()
         if self._app and len(self._app.cards) > 2:
             self._app.cards[2]._set_flow_params_enabled(True)
+        if self._app and len(self._app.cards) > 3:
+            self._app.cards[3]._set_flow_params_enabled(True)   # enables FD-params button
         if self._app:
             self._app._disable_theme_button()
         if self._on_loaded:
@@ -1193,22 +1304,32 @@ class CubeCard(tk.Frame):
         done = False
         appended_log = False
         leftover = []
+        log_buf: list[str] = []   # coalesce consecutive log chunks into one insert
+
+        def _flush_logs():
+            nonlocal appended_log
+            if log_buf and self._app and len(self._app.cards) > log_card:
+                self._app.cards[log_card]._append_log("".join(log_buf))
+                appended_log = True
+            log_buf.clear()
+
         i = 0
         while i < len(pending):
             msg  = pending[i]
             kind = msg[0]
 
             if kind == "log":
-                if self._app and len(self._app.cards) > log_card:
-                    self._app.cards[log_card]._append_log(msg[1])
-                appended_log = True
+                log_buf.append(msg[1])
                 i += 1
                 continue
 
-            # Any view-changing transition: if we've already appended log lines
-            # this tick, defer it (and the rest) so the logs actually paint
-            # before the preview switches away — this is what makes card 1's
-            # detection logs stream like card 2's flow logs.
+            # Paint any buffered logs in a single Text insert before handling a
+            # view-changing transition (cheaper than one insert per line).
+            _flush_logs()
+
+            # If we've already appended log lines this tick, defer this
+            # transition (and the rest) so the logs actually paint before the
+            # preview switches away — keeps card 1's detection logs streaming.
             if appended_log:
                 leftover = pending[i:]
                 break
@@ -1219,34 +1340,34 @@ class CubeCard(tk.Frame):
                     self._app.cards[log_card]._init_log_preview()
 
             elif kind == "detection_done":
-                det, wav_p, frames = msg[1], msg[2], msg[3]
-                ms_dets = msg[4] if len(msg) > 4 else None
-                self._on_detection_done(det, wav_p, frames=frames, multi_scale_dets=ms_dets)
+                det, wav_p = msg[1], msg[2]
+                ms_dets = msg[3] if len(msg) > 3 else None
+                self._on_detection_done(det, wav_p, multi_scale_dets=ms_dets)
                 self._step_label.configure(text="Flow…")
 
             elif kind == "flow_done":
-                flow_seq, frames = msg[1], msg[2]
-                fps = msg[3] if len(msg) > 3 else None
-                dps = msg[4] if len(msg) > 4 else None
+                flow_seq = msg[1]
+                fps = msg[2] if len(msg) > 2 else None
+                dps = msg[3] if len(msg) > 3 else None
                 if self._app:
                     c2 = self._app.cards[2]
                     if not c2.enabled:
                         c2.enable()
-                    c2._on_flow_done(flow_seq, frames=frames,
+                    c2._on_flow_done(flow_seq,
                                      flow_seq_per_scale=fps,
                                      detections_per_scale=dps)
 
             elif kind == "tracking_done":
-                flow_seq, tracks, sources, frames = msg[1], msg[2], msg[3], msg[4]
-                hier = msg[5] if len(msg) > 5 else None
-                tps  = msg[6] if len(msg) > 6 else None
-                sps  = msg[7] if len(msg) > 7 else None
-                ms_dets = msg[8] if len(msg) > 8 else None
+                flow_seq, tracks, sources = msg[1], msg[2], msg[3]
+                hier = msg[4] if len(msg) > 4 else None
+                tps  = msg[5] if len(msg) > 5 else None
+                sps  = msg[6] if len(msg) > 6 else None
+                ms_dets = msg[7] if len(msg) > 7 else None
                 if self._app:
                     c3 = self._app.cards[3]
                     if not c3.enabled:
                         c3.enable()
-                    c3._on_tracking_done(tracks, sources, frames=frames,
+                    c3._on_tracking_done(tracks, sources,
                                          hierarchical_sources=hier,
                                          tracks_per_scale=tps,
                                          sources_per_scale=sps,
@@ -1267,6 +1388,9 @@ class CubeCard(tk.Frame):
 
             i += 1
 
+        # Paint any logs left in the buffer after the loop.
+        _flush_logs()
+
         if not done:
             self.after(40, lambda: self._poll_pipeline(q, log_card, leftover))
 
@@ -1281,27 +1405,23 @@ class CubeCard(tk.Frame):
         self._wav_params = params
 
     def _on_detection_done(self, detections: list, params: dict,
-                           frames: dict | None = None,
                            multi_scale_dets: list | None = None):
         self.detections        = detections
         self._multi_scale_dets = multi_scale_dets or []
         self._wav_params       = params
         c0   = self._app.cards[0] if self._app else None
         cube = c0.cube if c0 else None
-        if frames is None:
-            if self._multi_scale_dets and cube is not None:
-                frames = _build_multi_scale_frames(
-                    cube, self._multi_scale_dets, c0.beam, c0.pixscale)
-            elif detections and cube is not None:
-                frames = _build_wavelet_frames(cube, detections, c0.beam, c0.pixscale)
-            else:
-                frames = {}
-        elif not frames and self._multi_scale_dets and cube is not None:
-            frames = _build_multi_scale_frames(
+        # Install a lazy per-channel renderer (frames render on demand on the
+        # main thread, so the pipeline worker never touches matplotlib).
+        channels: list = []
+        if cube is not None and self._multi_scale_dets:
+            channels, render = _multi_scale_renderer(
                 cube, self._multi_scale_dets, c0.beam, c0.pixscale)
-        self._gif_frames_by_ch = frames
-        self._gif_tk_by_ch     = {}
-        if frames:
+            self._set_lazy_gif(channels, render)
+        elif cube is not None and detections:
+            channels, render = _wavelet_renderer(cube, detections, c0.beam, c0.pixscale)
+            self._set_lazy_gif(channels, render)
+        if channels:
             # Same behaviour as card 2 / card 3: logs stream into the preview
             # while detection runs, then switch to the GIF when it completes.
             self._has_figure = True
@@ -1350,16 +1470,32 @@ class CubeCard(tk.Frame):
                     on_params_saved=_on_saved,
                     card_0=self._app.cards[0] if self._app else None)
 
+    def _max_scale_wav_p(self, cube) -> dict:
+        """Wavelet params with ``scales`` forced to the max 2-D scales the cube
+        supports (use_scale clamped to a valid detail band)."""
+        from ..detect import max_2d_scales, default_detect_scales
+        wav_p = dict(self._wav_params or dict(
+            scales=6, k_sigma=5.0, use_scale=5,
+            min_area=20, thresh=None, use_mean_map_sigma=True,
+        ))
+        n = max_2d_scales(cube.shape[1], cube.shape[2])
+        wav_p["scales"] = n
+        wav_p["use_scale"] = min(int(wav_p.get("use_scale", n - 1)), n - 1)
+        # Multi-scale detection bands: honour the configured selection (clamped
+        # to valid detail bands 1…n-1, never the coarse residual), else default
+        # to the three below the coarsest (Nmax-1, Nmax-2, Nmax-3).
+        ds = sorted({int(s) for s in (wav_p.get("detect_scales") or [])
+                     if 1 <= int(s) <= n - 1})
+        wav_p["detect_scales"] = ds or default_detect_scales(n)
+        return wav_p
+
     def _run_decomposition(self):
         cube = self._app.cards[0].cube if self._app else None
         if cube is None:
             messagebox.showwarning("No cube", "Load a cube in the Moment 0 step first.")
             return
-        wav_p = self._wav_params or dict(
-            scales=6, k_sigma=5.0, use_scale=5,
-            min_area=20, thresh=None, use_mean_map_sigma=True,
-        )
-        n_scales = wav_p.get("scales", 6)
+        wav_p = self._max_scale_wav_p(cube)
+        n_scales = wav_p["scales"]
         n_detail = n_scales - 1
         n_ch, H, W = cube.shape
 
@@ -1385,14 +1521,11 @@ class CubeCard(tk.Frame):
         _beam     = c0.beam     if c0 else None
         _pixscale = c0.pixscale if c0 else None
 
-        wav_p  = self._wav_params or dict(
-            scales=6, k_sigma=5.0, use_scale=5,
-            min_area=20, thresh=None, use_mean_map_sigma=True,
-        )
+        wav_p  = self._max_scale_wav_p(cube)
         flow_p = (self._app.cards[2]._flow_params if self._app else None) or dict(
             min_match_overlap=5, max_gap_channels=5,
         )
-        fd_p = (self._app.cards[2]._false_det_params if self._app else None) or {}
+        fd_p = (self._app.cards[3]._false_det_params if self._app else None) or {}
 
         # Read BooleanVar on the main thread — Tcl is not thread-safe
         _ms_var = getattr(c0, '_multi_scale_enabled', None)
@@ -1425,8 +1558,11 @@ class CubeCard(tk.Frame):
                     detector = WaveletDetector(detect_all_scales=True, **wav_p)
                     multi_scale_dets = detector.detect(cube, channel_list=ch_list, verbose=True)
 
+                    # Preview frames are rendered lazily on the main thread —
+                    # the worker only posts the computed data (keeps the UI
+                    # responsive: no GIL-heavy matplotlib in this thread).
                     det = []
-                    q.put(("detection_done", det, wav_p, {}, multi_scale_dets))
+                    q.put(("detection_done", det, wav_p, multi_scale_dets))
                     q.put(("switch_card", 2))
 
                     tracker = FlowTracker(detector=detector,
@@ -1439,11 +1575,8 @@ class CubeCard(tk.Frame):
                     tracks_per_scale, flow_seq_per_scale = tracker.link_multi_scale(
                         dps, verbose=True)
                     coarsest = max(flow_seq_per_scale.keys())
-                    flow_frames = _build_multi_scale_flow_frames(
-                        cube, flow_seq_per_scale, dps, coarsest, _beam, _pixscale)
                     flow_seq = flow_seq_per_scale[coarsest]
-                    q.put(("flow_done", flow_seq, flow_frames,
-                           flow_seq_per_scale, dps))
+                    q.put(("flow_done", flow_seq, flow_seq_per_scale, dps))
                     q.put(("switch_card", 3))
 
                     # Phase 2 — grouping, hierarchy, false-detection filtering
@@ -1452,22 +1585,17 @@ class CubeCard(tk.Frame):
                         flow_seq_per_scale, verbose=True)
                     tracks = result.tracks
                     good_sources = result.sources
-                    src_frames = _build_hierarchical_sources_frames(
-                        cube, result.hierarchical_sources, result.tracks_per_scale,
-                        multi_scale_dets, _beam, _pixscale)
-                    q.put(("tracking_done", flow_seq, tracks, good_sources, src_frames,
+                    q.put(("tracking_done", flow_seq, tracks, good_sources,
                            result.hierarchical_sources, result.tracks_per_scale,
                            result.sources_per_scale, multi_scale_dets))
                 else:
                     # Single-scale detection path (original)
                     det = WaveletDetector(**wav_p).detect(cube, channel_list=ch_list, verbose=True)
-                    wav_frames = _build_wavelet_frames(cube, det, _beam, _pixscale)
-                    q.put(("detection_done", det, wav_p, wav_frames))
+                    q.put(("detection_done", det, wav_p))
 
                     q.put(("switch_card", 2))
                     flow_seq   = compute_flow_sequence(det, verbose=True)
-                    flow_frames = _build_flow_frames(cube, flow_seq, det, _beam, _pixscale)
-                    q.put(("flow_done", flow_seq, flow_frames))
+                    q.put(("flow_done", flow_seq))
 
                     q.put(("switch_card", 3))
                     tracks = link_tracks(det, flow_seq,
@@ -1486,9 +1614,7 @@ class CubeCard(tk.Frame):
                         sources, tracks, det, flow_seq,
                         verbose=True, **fd_p,
                     )
-                    src_frames = (_build_sources_frames(cube, tracks, good_sources, _beam, _pixscale)
-                                  if good_sources else {})
-                    q.put(("tracking_done", flow_seq, tracks, good_sources, src_frames))
+                    q.put(("tracking_done", flow_seq, tracks, good_sources))
             except Exception as exc:
                 q.put(("error", str(exc)))
             finally:
@@ -1501,22 +1627,25 @@ class CubeCard(tk.Frame):
     # Card 2 actions
     # ------------------------------------------------------------------ #
 
-    def _on_flow_done(self, flow_seq: list, frames: dict | None = None,
+    def _on_flow_done(self, flow_seq: list,
                       flow_seq_per_scale=None, detections_per_scale=None):
         self.flow_seq = flow_seq
         self._flow_seq_per_scale   = flow_seq_per_scale
         self._flow_detections_per_scale = detections_per_scale
-        if frames is None:
-            c0   = self._app.cards[0] if self._app else None
-            cube = c0.cube if c0 else None
-            det  = self._app.cards[1].detections if self._app else None
-            if cube is not None:
-                frames = _build_flow_frames(cube, flow_seq, det, c0.beam, c0.pixscale)
-            else:
-                frames = {}
-        self._gif_frames_by_ch = frames
-        self._gif_tk_by_ch     = {}
-        if frames:
+        c0   = self._app.cards[0] if self._app else None
+        cube = c0.cube if c0 else None
+        channels: list = []
+        if cube is not None and flow_seq_per_scale and detections_per_scale:
+            coarsest = max(flow_seq_per_scale.keys())
+            channels, render = _multi_scale_flow_renderer(
+                cube, flow_seq_per_scale, detections_per_scale, coarsest,
+                c0.beam, c0.pixscale)
+            self._set_lazy_gif(channels, render)
+        elif cube is not None:
+            det = self._app.cards[1].detections if self._app else None
+            channels, render = _flow_renderer(cube, flow_seq, det, c0.beam, c0.pixscale)
+            self._set_lazy_gif(channels, render)
+        if channels:
             self._has_figure = True
             self._install_gif_canvas()
             self._preview_state = "figure"
@@ -1535,7 +1664,7 @@ class CubeCard(tk.Frame):
     # Card 3 actions
     # ------------------------------------------------------------------ #
 
-    def _on_tracking_done(self, tracks: list, sources: list, frames: dict | None = None,
+    def _on_tracking_done(self, tracks: list, sources: list,
                           hierarchical_sources=None, tracks_per_scale=None,
                           sources_per_scale=None, multi_scale_dets=None):
         self.tracks  = tracks
@@ -1562,20 +1691,19 @@ class CubeCard(tk.Frame):
                 f"  Tracks   : {n_tracks}\n"
                 f"  Sources  : {n_sources}\n"
             )
-        if frames is None:
-            c0   = self._app.cards[0] if self._app else None
-            cube = c0.cube if c0 else None
-            if cube is not None and hierarchical_sources and tracks_per_scale:
-                frames = _build_hierarchical_sources_frames(
-                    cube, hierarchical_sources, tracks_per_scale,
-                    self._multi_scale_dets, c0.beam, c0.pixscale)
-            elif cube is not None and sources:
-                frames = _build_sources_frames(cube, tracks, sources, c0.beam, c0.pixscale)
-            else:
-                frames = {}
-        self._gif_frames_by_ch = frames
-        self._gif_tk_by_ch     = {}
-        self._has_figure = bool(self._gif_frames_by_ch)
+        c0   = self._app.cards[0] if self._app else None
+        cube = c0.cube if c0 else None
+        channels: list = []
+        if cube is not None and hierarchical_sources and tracks_per_scale:
+            channels, render = _hierarchical_sources_renderer(
+                cube, hierarchical_sources, tracks_per_scale,
+                self._multi_scale_dets, c0.beam, c0.pixscale)
+            if render is not None:
+                self._set_lazy_gif(channels, render)
+        elif cube is not None and sources:
+            channels, render = _sources_renderer(cube, tracks, sources, c0.beam, c0.pixscale)
+            self._set_lazy_gif(channels, render)
+        self._has_figure = bool(channels)
         if self._has_figure:
             self._install_gif_canvas()
             self._preview_state = "figure"
@@ -1587,25 +1715,13 @@ class CubeCard(tk.Frame):
             if self._log_lines:
                 self._raise_toggle("Show Logs")
         self.btn_view_sources.enable()
-        self.btn_combined.enable()
         self.btn_individual.enable()
         if self._on_loaded:
             self._on_loaded(self.index)
 
     def _view_sources_per_channel(self):
-        cube = self._app.cards[0].cube if self._app else None
-        hier = getattr(self, "_hierarchical_sources", None)
-        if cube is None or (not getattr(self, "sources", None) and not hier):
-            return
-        c0 = self._app.cards[0] if self._app else None
-        SliceViewer(self, cube,
-                    tracks=self.tracks, sources=self.sources,
-                    hierarchical_sources=hier,
-                    tracks_per_scale=getattr(self, "_tracks_per_scale", None),
-                    mode="sources",
-                    beam=c0.beam if c0 else None, pixscale=c0.pixscale if c0 else None,
-                    kpc_per_pix=c0.kpc_per_pix if c0 else None,
-                    vel_array=c0.vel_array if c0 else None)
+        # Folded into the combined Source Analysis window.
+        self._combined_analysis()
 
     def _combined_analysis(self):
         c0 = self._app.cards[0] if self._app else None
@@ -1616,7 +1732,10 @@ class CubeCard(tk.Frame):
         CombinedAnalysisWindow(self, cube, self.tracks, self.sources,
                                vel_array=c0.vel_array if c0 else None,
                                hierarchical_sources=hier,
-                               tracks_per_scale=getattr(self, "_tracks_per_scale", None))
+                               tracks_per_scale=getattr(self, "_tracks_per_scale", None),
+                               beam=c0.beam if c0 else None,
+                               pixscale=c0.pixscale if c0 else None,
+                               kpc_per_pix=c0.kpc_per_pix if c0 else None)
 
     def _individual_analysis(self):
         c0 = self._app.cards[0] if self._app else None
@@ -1627,7 +1746,9 @@ class CubeCard(tk.Frame):
         IndividualAnalysisWindow(self, cube, self.tracks, self.sources,
                                  vel_array=c0.vel_array if c0 else None,
                                  hierarchical_sources=hier,
-                                 tracks_per_scale=getattr(self, "_tracks_per_scale", None))
+                                 tracks_per_scale=getattr(self, "_tracks_per_scale", None),
+                                 beam=c0.beam if c0 else None,
+                                 pixscale=c0.pixscale if c0 else None)
 
     def _view_flow(self):
         if not self.flow_seq:
@@ -1696,24 +1817,23 @@ class CubeCard(tk.Frame):
             if self.index == 0 and self.cube is not None:
                 self._render_moment0(self.detections)
             elif self.index == 1 and getattr(self, "_multi_scale_dets", None) and cube0 is not None:
-                self._gif_frames_by_ch = _build_multi_scale_frames(
-                    cube0, self._multi_scale_dets, beam, pxs)
-                self._gif_tk_by_ch = {}
+                self._set_lazy_gif(*_multi_scale_renderer(
+                    cube0, self._multi_scale_dets, beam, pxs))
             elif self.index == 1 and self.detections is not None and cube0 is not None:
                 self._render_wavelet_gif(cube0, self.detections)
             elif self.index == 2 and getattr(self, "_flow_seq_per_scale", None) and cube0 is not None:
                 dps = getattr(self, "_flow_detections_per_scale", {}) or {}
                 coarsest = max(self._flow_seq_per_scale.keys())
-                self._gif_frames_by_ch = _build_multi_scale_flow_frames(
-                    cube0, self._flow_seq_per_scale, dps, coarsest, beam, pxs)
-                self._gif_tk_by_ch = {}
+                self._set_lazy_gif(*_multi_scale_flow_renderer(
+                    cube0, self._flow_seq_per_scale, dps, coarsest, beam, pxs))
             elif self.index == 2 and self.flow_seq is not None and cube0 is not None:
                 self._render_flow_gif(cube0, self.flow_seq)
             elif self.index == 3 and getattr(self, "_hierarchical_sources", None) and cube0 is not None:
-                self._gif_frames_by_ch = _build_hierarchical_sources_frames(
+                channels, render = _hierarchical_sources_renderer(
                     cube0, self._hierarchical_sources, self._tracks_per_scale,
                     getattr(self, "_multi_scale_dets", []), beam, pxs)
-                self._gif_tk_by_ch = {}
+                if render is not None:
+                    self._set_lazy_gif(channels, render)
             elif self.index == 3 and self.sources is not None and cube0 is not None:
                 self._render_sources_gif(cube0, self.tracks, self.sources)
             # Clear the last channel so show_gif_for_channel will update
@@ -1787,8 +1907,8 @@ class CubeCard(tk.Frame):
                 self._reset_flow_controls()
                 self._set_flow_params_enabled(False)
             for attr in ("btn_decompose", "btn_configure", "btn_det_view",
-                         "btn_flow_view",
-                         "btn_view_sources", "btn_combined", "btn_individual",
+                         "btn_flow_view", "btn_fd_params",
+                         "btn_view_sources", "btn_individual",
                          "btn_run"):
                 if hasattr(self, attr):
                     getattr(self, attr).disable()
