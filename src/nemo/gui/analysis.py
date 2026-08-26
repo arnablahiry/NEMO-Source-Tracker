@@ -4,6 +4,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 
+from ..utils import clamped_bbox
 from . import _constants as C
 from ._theme import set_titlebar_appearance
 from ._transport import TransportControls
@@ -64,6 +65,64 @@ def _source_colors(sources):
         colors = {sid: tuple(min(c * 0.6, 1.0) for c in rgba[:3]) + (rgba[3],)
                   for sid, rgba in colors.items()}
     return colors
+
+
+def _mom1_valid(total_flux, cube, n_chan, k=5.0):
+    """Pixels where the moment-1 denominator is trustworthy.
+
+    Moment 1 is ``Σ(flux·v) / Σ(flux)``.  Guarding only on ``total_flux > 0``
+    is not enough for interferometric data: positive and negative noise very
+    nearly cancel, and a denominator a hair above zero sends the ratio to
+    absurd velocities.  Measured on an IC5179 CO(2-1) cube, that guard produced
+    a moment-1 map spanning −296,002 … +397,240 km/s against a real velocity
+    axis of 2780 … 3979 — 5.7% of pixels unphysical, and because they set the
+    colour scale the whole map rendered as one flat tone.
+
+    Requiring the summed flux to exceed ``k·σ·√n_chan`` (σ from a MAD estimate
+    of the cube) keeps only pixels with a genuinely significant denominator.
+    On the same cube this returns 2859 … 3693 km/s.
+    """
+    finite = cube[np.isfinite(cube)]
+    if finite.size == 0:
+        return total_flux > 0
+    sigma = 1.4826 * np.median(np.abs(finite - np.median(finite)))
+    if not np.isfinite(sigma) or sigma <= 0:
+        return total_flux > 0
+    return total_flux > (k * sigma * np.sqrt(max(int(n_chan), 1)))
+
+
+def _mom1_limits(m1):
+    """Diverging colour limits for a moment-1 map, centred on the map itself.
+
+    A moment-1 map holds *absolute* velocities (e.g. 2780–3979 km/s for a
+    galaxy at cz ≈ 3400), not offsets from zero.  Scaling it symmetrically
+    about 0 therefore pushes every pixel into the top colour and the rotation
+    signature disappears — the map renders as one flat block.
+
+    Centre on the median (the systemic velocity, near enough) and take the
+    half-range from a high percentile rather than the extremum, so a handful of
+    edge pixels cannot flatten the whole map.
+    """
+    if m1 is None or not np.any(~np.isnan(m1)):
+        return 0.0, 1.0
+    c = float(np.nanmedian(m1))
+    half = float(np.nanpercentile(np.abs(m1 - c), 99.0))
+    if not np.isfinite(half) or half <= 0:
+        half = 1.0
+    return c - half, c + half
+
+
+def _clip_to_axis(mom1, ch_axis):
+    """Blank any moment-1 pixel outside the actual velocity axis.
+
+    A backstop: an intensity-weighted mean of velocities can only legitimately
+    land inside the range of those velocities, so anything outside is numerical
+    fallout, not a measurement.
+    """
+    if ch_axis is None or len(ch_axis) == 0:
+        return mom1
+    lo, hi = float(np.min(ch_axis)), float(np.max(ch_axis))
+    return np.where((mom1 >= lo) & (mom1 <= hi), mom1, np.nan)
 
 
 def _shade(base, alpha):
@@ -198,11 +257,11 @@ class CombinedAnalysisWindow(TransportControls, tk.Toplevel):
         total_flux = flux_stack.sum(axis=0)
         ch_axis = self._sp_axis[det_idx].astype(np.float32)
         with np.errstate(invalid="ignore", divide="ignore"):
-            self._mom1 = np.where(
-                (total_flux > 0) & self._all_union,
+            self._mom1 = _clip_to_axis(np.where(
+                _mom1_valid(total_flux, cube, len(det_idx)) & self._all_union,
                 (flux_stack * ch_axis[:, None, None]).sum(axis=0) / total_flux,
                 np.nan,
-            )
+            ), ch_axis)
 
         # channel slider scrubs the whole cube
         self._chan_list = list(range(cube.shape[0]))
@@ -684,16 +743,19 @@ class CombinedAnalysisWindow(TransportControls, tk.Toplevel):
                 r0, r1, c0, c1 = rows.min(), rows.max(), cols.min(), cols.max()
                 PAD_BB = 4                          # match the GIF / square preview
                 rgb3 = (rgb[0], rgb[1], rgb[2])
+                _bx, _by, _bw, _bh, _lx, _ly = clamped_bbox(
+                    r0, r1, c0, c1, PAD_BB, chan_img.shape)
                 ax_ch.add_patch(_Rect(
-                    (c0 - PAD_BB, r0 - PAD_BB), c1 - c0 + 2*PAD_BB,
-                    r1 - r0 + 2*PAD_BB, linewidth=0.9,
+                    (_bx, _by), _bw, _bh, linewidth=0.9,
                     edgecolor=(rgb3[0], rgb3[1], rgb3[2], 0.9),
                     facecolor="none", zorder=4))
-                ax_ch.text(c1 + PAD_BB, r1 + PAD_BB, label, ha="center",
+                ax_ch.text(_lx, _ly,
+                           label, ha="center",
                            va="center", fontsize=6, color="black",
                            fontweight="bold", zorder=6,
                            bbox=dict(boxstyle="round,pad=0.2",
                                      fc=rgb3, ec=rgb3, lw=1.0))
+
         self._draw_beam(ax_ch, self._H, self._W, flux_oc)
         self._draw_scalebar(ax_ch, self._H, self._W, flux_oc)
         _panel_label(ax_ch, f"Channel {ch + 1}")
@@ -716,9 +778,9 @@ class CombinedAnalysisWindow(TransportControls, tk.Toplevel):
         # ── Moment 1 ──────────────────────────────────────────────────────────
         ax_m1.set_facecolor(t["m1_bg"])
         m1_show = np.where(vis_union, self._mom1, np.nan)
-        vmax = float(np.nanmax(np.abs(m1_show))) if np.any(~np.isnan(m1_show)) else 1.0
+        _v0, _v1 = _mom1_limits(m1_show)
         im1 = ax_m1.imshow(m1_show, cmap=m1_cmap, origin="lower",
-                           vmin=-vmax, vmax=vmax)
+                           vmin=_v0, vmax=_v1)
         self._draw_beam(ax_m1, self._H, self._W, m1_oc)
         _panel_label(ax_m1, "Moment 1")
         _top_cbar(ax_m1, im1, self._m1_unit)
@@ -1390,8 +1452,8 @@ class IndividualAnalysisWindow(TransportControls, tk.Toplevel):
         self._mom0_crop = flux_crop.sum(axis=0)
         with np.errstate(invalid="ignore", divide="ignore"):
             mom1 = (flux_crop * ch_axis[:, None, None]).sum(axis=0) / total_flux
-        valid = (total_flux > 0) & footprint
-        self._mom1_crop = np.where(valid, mom1, np.nan)
+        valid = _mom1_valid(total_flux, self._cube, len(det_idx)) & footprint
+        self._mom1_crop = _clip_to_axis(np.where(valid, mom1, np.nan), ch_axis)
         self._footprint = footprint
         self._det_chs = det_chs
 
@@ -1588,15 +1650,9 @@ class IndividualAnalysisWindow(TransportControls, tk.Toplevel):
         # ── [1,1] moment 1, colorbar RIGHT ───────────────────────────────────
         ax_m1.set_facecolor(t["m1_bg"])
         m1 = self._mom1_crop
-        if np.any(~np.isnan(m1)):
-            c = float(np.nanmedian(m1))
-            half = float(np.nanmax(np.abs(m1 - c)))
-            if half <= 0:
-                half = 1.0
-        else:
-            c, half = 0.0, 1.0
+        _v0, _v1 = _mom1_limits(m1)
         im1 = ax_m1.imshow(m1, cmap=m1_cmap, origin="lower",
-                           vmin=c - half, vmax=c + half, aspect="auto")
+                           vmin=_v0, vmax=_v1, aspect="auto")
         _overlay_footprints(ax_m1)
         self._draw_beam(ax_m1, *footprint.shape)
         _label(ax_m1, "Moment 1")

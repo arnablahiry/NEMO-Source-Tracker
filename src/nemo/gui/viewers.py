@@ -7,10 +7,12 @@ import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib.colors import PowerNorm, LogNorm, Normalize
 
+from ..utils import clamped_bbox
 from . import _constants as C
 from ._constants import _CMAPS
 from ._transport import TransportControls
-from .widgets import _FlatBtn
+from .widgets import _FlatBtn, make_slider_box
+from ..detect import beam_area_px as _beam_area_px
 from .dialogs import ScalingDialog
 
 
@@ -529,7 +531,9 @@ class SliceViewer(TransportControls, tk.Toplevel):
             orient=tk.HORIZONTAL, command=lambda _v: self._draw(),
             bg=_accent(), fg=_accent(), troughcolor=C.LOG_BG,
             activebackground=C.ACCENT_HOVER, highlightthickness=0,
-            sliderrelief=tk.FLAT, bd=0, width=11, showvalue=False,
+            # width = trough thickness; 8 matches make_slider_box so this sits
+            # at exactly the same height as the area slider beside it.
+            sliderrelief=tk.FLAT, bd=0, width=8, showvalue=False,
         )
         self._slider.pack(side=tk.LEFT, fill=tk.X, expand=True)
         tk.Frame(ch_row, bg=_accent(), width=1).pack(side=tk.LEFT, fill=tk.Y, padx=(3, 0))
@@ -1136,14 +1140,15 @@ class SliceViewer(TransportControls, tk.Toplevel):
                         continue
                     r0, r1 = int(rows.min()), int(rows.max())
                     c0, c1 = int(cols.min()), int(cols.max())
+                    _bx, _by, _bw, _bh, _lx, _ly = clamped_bbox(
+                        r0, r1, c0, c1, PAD_BB, union.shape)
                     self._ax.add_patch(_Rect(
-                        (c0 - PAD_BB, r0 - PAD_BB),
-                        c1 - c0 + 2*PAD_BB, r1 - r0 + 2*PAD_BB,
+                        (_bx, _by), _bw, _bh,
                         linewidth=0.9, edgecolor=(r, g, b, 0.9),
                         facecolor="none", zorder=4,
                     ))
                     self._ax.text(
-                        c1 + PAD_BB, r1 + PAD_BB, self._hsrc_name.get(h_id, str(h_id)),
+                        _lx, _ly, self._hsrc_name.get(h_id, str(h_id)),
                         ha="center", va="center", fontsize=7,
                         color="black", fontweight="bold",
                         bbox=dict(boxstyle="round,pad=0.22", fc=(r, g, b), ec=(r, g, b), lw=1.2),
@@ -1171,13 +1176,14 @@ class SliceViewer(TransportControls, tk.Toplevel):
                         continue
                     r0, r1 = int(rows.min()), int(rows.max())
                     c0, c1 = int(cols.min()), int(cols.max())
+                    _bx, _by, _bw, _bh, _lx, _ly = clamped_bbox(
+                        r0, r1, c0, c1, PAD_BB, m.shape)
                     self._ax.add_patch(_Rect(
-                        (c0 - PAD_BB, r0 - PAD_BB),
-                        c1 - c0 + 2*PAD_BB, r1 - r0 + 2*PAD_BB,
+                        (_bx, _by), _bw, _bh,
                         linewidth=0.8, edgecolor=lcol, facecolor="none", zorder=4,
                     ))
                     self._ax.text(
-                        c1 + PAD_BB, r1 + PAD_BB, str(sid),
+                        _lx, _ly, str(sid),
                         ha="center", va="center", fontsize=7,
                         color="black", fontweight="bold",
                         bbox=dict(boxstyle="circle,pad=0.22", fc=lcol, ec=lcol, lw=1.2),
@@ -1280,7 +1286,9 @@ class ScaleViewer(tk.Toplevel):
         self._channels = [d.channel for d in detections] if detections \
                          else list(range(cube.shape[0]))
 
-        VW = 700
+        # Wider than before: every band is now its own panel with a k control
+        # underneath, so the cells need room and the window is sized to match.
+        VW = 1040
 
         ctrl = tk.Frame(self, bg=C.BG)
         ctrl.pack(fill=tk.X, padx=10, pady=(10, 14))
@@ -1290,6 +1298,20 @@ class ScaleViewer(tk.Toplevel):
             self._multi_scale_enabled = card_0._multi_scale_enabled
         else:
             self._multi_scale_enabled = tk.BooleanVar(value=True)
+
+        # Beam FWHM in pixels, straight from the loaded header — the loader
+        # already parsed beam=(bmaj", bmin", bpa) and pixscale ("/px) to draw
+        # the beam ellipse, so the physical scale floor needs no manual entry.
+        self._beam_px = None
+        _beam = getattr(card_0, "beam", None)
+        _psc = getattr(card_0, "pixscale", None)
+        if _beam and _psc:
+            try:
+                _bmaj, _bmin, _ps = float(_beam[0]), float(_beam[1]), float(_psc)
+                if _bmaj > 0 and _bmin > 0 and _ps > 0:
+                    self._beam_px = float(np.sqrt(_bmaj * _bmin) / _ps)
+            except (TypeError, ValueError, IndexError):
+                self._beam_px = None
 
         # Default multi-scale selection: the configured detect_scales, else the
         # three bands below the coarsest (Nmax-1, Nmax-2, Nmax-3).
@@ -1350,6 +1372,16 @@ class ScaleViewer(tk.Toplevel):
         self._fig = None
         self._img_label = None;  self._img_photo = None
         self._n_scales_last = 0
+        # Per-scale detection threshold.  `k_sigma` may arrive as a scalar
+        # (legacy) or a {scale: k} dict; both seed the per-band controls.
+        _k_in = self._wav_params.get("k_sigma", 3.0)
+        self._k_defaults = (dict(_k_in) if isinstance(_k_in, dict)
+                            else {sc: float(_k_in)
+                                  for sc in range(1, self._max_scales + 1)})
+        self._k_vars: dict[int, tk.Variable] = {}
+        self._panels: dict[int, tk.Label] = {}
+        self._panel_figs: dict = {}
+        self._panel_photos: dict = {}
 
         _PW, _PH = 26, 20   # pill width / height for numeric pills
         _PWL     = 160      # wider pill for text labels
@@ -1403,30 +1435,16 @@ class ScaleViewer(tk.Toplevel):
         # ── Starlet decomposition equation (between subplots and params) ──────
         self._build_equation(self)
 
-        # ── Number of scales ──────────────────────────────────────────────────
-        _, _mk_ns, _ref_ns = _pill_row(self, "Number of scales:")
-        self._n_scales_pills_refresh = _ref_ns
-        for s in range(2, self._max_scales + 1):
-            _val = s
-            _mk_ns(str(s), _PW,
-                   on_click=lambda v=_val: (self._n_scales_var.set(v), self._on_nscales_changed()),
-                   is_selected_fn=lambda v=_val: int(self._n_scales_var.get()) == v)
+        # Always decompose to the maximum number of scales the image dimensions
+        # support — there is no reason to throw away bands, and which bands are
+        # actually *used* is the scale selection below.
+        self._n_scales_var.set(self._max_scales)
 
         self._VW = VW
-        self._rf = tk.Frame(self, bg=C.BG)
-        self._rf.pack(fill=tk.X, padx=10, pady=(4, 2))
-        self._rebuild_scale_selector()
 
-        # ── Detection Parameters — SONGS-style slider cards (horizontal) ─────
-        tk.Label(self, text="Detection Parameters", bg=C.BG, fg=_accent(),
-                 font=("Helvetica", 9, "bold")).pack(anchor="w", padx=10, pady=(6, 0))
-        params_row = tk.Frame(self, bg=C.BG)
-        params_row.pack(fill=tk.X, padx=7, pady=(0, 0))
-
-        # `thresh` is the detection threshold as a fraction of the per-scale
-        # peak wavelet coefficient (mathematical, noise-model-free).
-        _stored = self._wav_params.get("thresh")
-        _thresh_init = 0.1 if _stored is None else float(_stored)
+        # One control row: scale pills | minimum detection area | channel.
+        _bar = tk.Frame(self, bg=C.BG)
+        _bar.pack(fill=tk.X, padx=10, pady=(6, 2))
 
         self._pvars: dict[str, tk.Variable] = {}
         SLIDER_H = 11    # uniform height for all slider tracks
@@ -1434,137 +1452,107 @@ class ScaleViewer(tk.Toplevel):
         def _symbol_fg():
             return "#000000" if C._current_theme == "light" else "#ffffff"
 
-        def _param_slider(segs, desc, key, from_, to_, init, resolution, fmt, integer=False):
-            """DIM card; plain desc above; symbol left of ACCENT-bordered slider+entry."""
-            var = tk.DoubleVar(value=init) if not integer else tk.IntVar(value=int(init))
-            self._pvars[key] = var
+        # ── Choose scales ────────────────────────────────────────────────────
+        _sc_col = tk.Frame(_bar, bg=C.BG)
+        _sc_col.pack(side=tk.LEFT, anchor="n", padx=(0, 22))
+        self._rf = tk.Frame(_sc_col, bg=C.BG)
+        self._rf.pack(anchor="w")
+        self._rebuild_scale_selector()
 
-            entry_var = tk.StringVar(value=fmt.format(int(init) if integer else init))
-            busy = {'v': False}
+        # ── Minimum detection area ───────────────────────────────────────────
+        _ma_col = tk.Frame(_bar, bg=C.BG)
+        _ma_col.pack(side=tk.LEFT, anchor="n", padx=(0, 22))
+        tk.Label(_ma_col, text="Minimum detection area:", bg=C.BG, fg=_accent(),
+                 font=("Helvetica", 9, "bold")).pack(anchor="w", pady=(0, 3))
+        _ma_row = tk.Frame(_ma_col, bg=C.BG)
+        _ma_row.pack(fill=tk.X, anchor="w")
+        _rich_label(_ma_row, [("A", "n"), ("min", "s"), (" (px)", "n")],
+                    bg=C.BG, fg=_symbol_fg()).pack(side=tk.LEFT, padx=(0, 8))
 
-            def _fmt_v(v):
-                try:    return fmt.format(int(round(v)) if integer else v)
-                except: return str(v)
+        # Default to one beam: a component smaller than the beam cannot be a
+        # resolved structure, so that is the physical floor.
+        _ma_default = self._wav_params.get("min_area")
+        if _ma_default is None:
+            _ma_default = (int(np.ceil(_beam_area_px(self._beam_px)))
+                           if self._beam_px else 20)
+        _ma_var = tk.IntVar(value=int(_ma_default))
+        self._pvars["min_area"] = _ma_var
 
-            card = tk.Frame(params_row, bg=C.DIM, padx=1, pady=1)
-            card.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=3, pady=(3, 0))
-            fr = tk.Frame(card, bg=C.CARD_BG, padx=6, pady=4)
-            fr.pack(fill=tk.BOTH, expand=True)
+        def _on_ma(v):
+            try:
+                _ma_var.set(int(round(float(v))))
+            except (ValueError, tk.TclError):
+                return
+            if self._panels:
+                self._draw()
 
-            # Plain text description above (wraps within the narrower column)
-            tk.Label(fr, text=desc, bg=C.CARD_BG, fg=C.STEP_LABEL_TXT,
-                     font=("Helvetica", 8), anchor="w", justify="left",
-                     wraplength=185).pack(anchor="w", pady=(0, 3))
+        _SLIDER_H = 26          # shared by the area and channel sliders
+        _ma_parts = make_slider_box(_ma_row, 1, 400, 1, "int", int(_ma_default),
+                                    on_change=_on_ma, height=_SLIDER_H)
+        # Deliberately narrow: min-area is a single small integer, whereas the
+        # channel slider is scrubbed across the whole cube and needs the travel.
+        _ma_parts["outer"].configure(width=150)
+        _ma_parts["outer"].pack_propagate(False)
+        _ma_parts["outer"].pack(side=tk.LEFT)
 
-            # Symbol left + slider box right
-            body = tk.Frame(fr, bg=C.CARD_BG)
-            body.pack(fill=tk.X)
+        _beam_txt = (f"Beam FWHM {self._beam_px:.2f} px  \u2192  one beam = "
+                     f"{_beam_area_px(self._beam_px):.0f} px\u00b2  (from header)"
+                     if self._beam_px else
+                     "No beam information in header \u2014 minimum area is not "
+                     "tied to the resolution limit")
+        tk.Label(_ma_col, text=_beam_txt, bg=C.BG,
+                 fg=C.STEP_LABEL_TXT if self._beam_px else C.DIM_TXT,
+                 font=("Helvetica", 9)).pack(anchor="w", pady=(3, 0))
 
-            sym = _rich_label(body, segs, bg=C.CARD_BG, fg=_symbol_fg())
-            sym.pack(side=tk.LEFT, anchor="center", padx=(0, 6))
-
-            slider_box = tk.Frame(body, bg=_accent(), padx=1, pady=1)
-            slider_box.pack(side=tk.LEFT, fill=tk.X, expand=True)
-            row = tk.Frame(slider_box, bg=C.CARD_BG, padx=4, pady=3)
-            row.pack(fill=tk.BOTH, expand=True)
-
-            def _on_scale(val):
-                if busy['v']: return
-                busy['v'] = True
-                v = int(round(float(val))) if integer else float(val)
-                var.set(v);  entry_var.set(_fmt_v(v))
-                busy['v'] = False
-                # live-update the detail-scale overlays as thresholds change
-                if key in ("thresh", "k_sigma", "min_area") and \
-                        getattr(self, "_img_label", None) is not None:
-                    self._draw()
-
-            scale = tk.Scale(row, from_=from_, to=to_, resolution=resolution,
-                             orient=tk.HORIZONTAL, command=_on_scale,
-                             bg=_accent(), fg=_accent(), troughcolor=C.LOG_BG,
-                             activebackground=C.ACCENT_HOVER, highlightthickness=0,
-                             sliderrelief=tk.FLAT, bd=0, showvalue=False, width=SLIDER_H)
-            scale.set(init)
-            scale.pack(side=tk.LEFT, fill=tk.X, expand=True)
-            tk.Frame(row, bg=_accent(), width=1).pack(side=tk.LEFT, fill=tk.Y, padx=(3, 0))
-
-            entry = tk.Entry(row, textvariable=entry_var, width=7,
-                             justify="right", bg=C.LOG_BG, fg=_accent(),
-                             insertbackground=_accent(), relief=tk.FLAT,
-                             highlightthickness=0, font=("Courier", 8), bd=0)
-            entry.pack(side=tk.RIGHT, padx=(4, 0))
-
-            def _commit(*_):
-                if busy['v']: return
-                try:
-                    raw = max(from_, min(to_, float(entry_var.get().strip())))
-                    busy['v'] = True
-                    v = int(round(raw)) if integer else raw
-                    var.set(v);  scale.set(v);  entry_var.set(_fmt_v(v))
-                    busy['v'] = False
-                    if key in ("thresh", "k_sigma", "min_area") and \
-                            getattr(self, "_img_label", None) is not None:
-                        self._draw()
-                except (ValueError, tk.TclError):
-                    pass
-
-            entry.bind("<Return>",   _commit)
-            entry.bind("<FocusOut>", _commit)
-
-        # w / w_max  — fraction of the per-scale peak coefficient (noise-free)
-        _param_slider([("w","n"), ("/w","n"), ("max","s")],
-                      "Peak-fraction threshold (per scale).",
-                      "thresh", 0.0, 0.9, _thresh_init, 0.01, "{:.2f}")
-        # λ_α (σ_α) per-scale noise gate (for noisy cubes; 0 disables)
-        _param_slider([("λ","n"), ("α","s"), (" (σ","n"), ("α","s"), (")","n")],
-                      "Noise threshold (per scale); 0 = off.",
-                      "k_sigma", 0.0, 20.0,
-                      float(self._wav_params.get("k_sigma", 0.0)),
-                      0.1, "{:.1f}")
-        # A_min (px)
-        _param_slider([("A","n"), ("min","s"), (" (px)","n")],
-                      "Minimum source area.",
-                      "min_area", 1, 200,
-                      int(self._wav_params.get("min_area", 20)),
-                      1, "{:d}", integer=True)
-
-        _FlatBtn(self, "Save Parameters", self._save_params,
-                 bg_on=C.ACCENT, active=True).pack(pady=(8, 4))
-
-        sw_card = tk.Frame(self, bg=C.DIM, padx=1, pady=1)
-        sw_card.pack(fill=tk.X, padx=10, pady=(4, 10))
-        sw_inner = tk.Frame(sw_card, bg=C.CARD_BG, padx=6, pady=4)
-        sw_inner.pack(fill=tk.BOTH, expand=True)
-        tk.Label(sw_inner, text="Channel", bg=C.CARD_BG, fg=C.STEP_LABEL_TXT,
-                 font=("Helvetica", 8), anchor="w").pack(anchor="w", pady=(0, 3))
-        sw_box = tk.Frame(sw_inner, bg=_accent(), padx=1, pady=1)
-        sw_box.pack(fill=tk.X)
-        sw_row = tk.Frame(sw_box, bg=C.CARD_BG, padx=4, pady=3)
+        # ── Channel ──────────────────────────────────────────────────────────
+        _ch_col = tk.Frame(_bar, bg=C.BG)
+        _ch_col.pack(side=tk.LEFT, anchor="n")
+        tk.Label(_ch_col, text="Channel:", bg=C.BG, fg=_accent(),
+                 font=("Helvetica", 9, "bold")).pack(anchor="w", pady=(0, 3))
+        # Wrapped so the channel control ends up exactly as tall as the area
+        # slider beside it (make_slider_box sizes its own outer frame).
+        sw_outer = tk.Frame(_ch_col, bg=C.DIM, padx=1, pady=1,
+                            height=_SLIDER_H, width=420)
+        sw_outer.pack_propagate(False)
+        sw_outer.pack(anchor="w")
+        sw_box = tk.Frame(sw_outer, bg=_accent(), padx=1, pady=1)
+        sw_box.pack(fill=tk.BOTH, expand=True)
+        sw_row = tk.Frame(sw_box, bg=C.CARD_BG, padx=4, pady=0)
         sw_row.pack(fill=tk.BOTH, expand=True)
         N_sw = len(self._channels)
         self._slider = tk.Scale(
-            sw_row, from_=0, to=N_sw - 1,
+            sw_row, from_=0, to=N_sw - 1, length=320,
             orient=tk.HORIZONTAL, command=lambda _v: self._draw(),
             bg=_accent(), fg=_accent(), troughcolor=C.LOG_BG,
             activebackground=C.ACCENT_HOVER, highlightthickness=0,
-            sliderrelief=tk.FLAT, bd=0, width=11, showvalue=False,
+            # width = trough thickness; 8 matches make_slider_box so the channel
+            # control is exactly as tall as the area slider beside it.
+            sliderrelief=tk.FLAT, bd=0, width=8, showvalue=False,
         )
         self._slider.pack(side=tk.LEFT, fill=tk.X, expand=True)
-        tk.Frame(sw_row, bg=_accent(), width=1).pack(side=tk.LEFT, fill=tk.Y, padx=(3, 0))
+        tk.Frame(sw_row, bg=_accent(), width=1).pack(side=tk.LEFT, fill=tk.Y,
+                                                     padx=(3, 0))
         self._ch_disp = tk.Canvas(sw_row, bg=C.LOG_BG, highlightthickness=0,
-                                  width=60, height=20)
+                                  width=58, height=_SLIDER_H - 8)
         self._ch_disp.pack(side=tk.RIGHT, padx=(3, 0))
+
         def _upd_sw(idx, N=N_sw):
             self._ch_disp.delete("all")
             w, h = 60, 20
             n = str(self._channels[int(idx)] + 1)
-            self._ch_disp.create_text(w//2 - 8, h//2, text=n,
-                                      fill=_accent(), font=("Courier", 8, "bold"), anchor="e")
-            self._ch_disp.create_text(w//2 - 6, h//2, text=f"/{N}",
-                                      fill=_accent(), font=("Courier", 8), anchor="w")
+            self._ch_disp.create_text(w // 2 - 8, h // 2, text=n,
+                                      fill=_accent(),
+                                      font=("Courier", 8, "bold"), anchor="e")
+            self._ch_disp.create_text(w // 2 - 6, h // 2, text=f"/{N}",
+                                      fill=_accent(),
+                                      font=("Courier", 8), anchor="w")
         self._upd_sw = _upd_sw
         _upd_sw(N_sw // 2)
         self._slider.set(N_sw // 2)
+
+        # ── Save, below the control row ──────────────────────────────────────
+        _FlatBtn(self, "Save Parameters", self._save_params,
+                 bg_on=C.ACCENT, active=True).pack(pady=(10, 10))
 
         self._rebuild_figure()
         self.update_idletasks()
@@ -1591,13 +1579,17 @@ class ScaleViewer(tk.Toplevel):
         for w in self._rf.winfo_children():
             w.destroy()
 
-        n_detail  = int(self._n_scales_var.get()) - 1
+        n_scales  = int(self._n_scales_var.get())
+        n_detail  = n_scales - 1
         _PW, _PH  = 26, 20
         is_multi  = self._multi_scale_enabled.get()
-        lbl_text  = "Select scales:" if is_multi else "Choose scale:"
+        lbl_text  = "Choose scales:" if is_multi else "Choose scale:"
 
+        # Heading on its own line, pills beneath it.
         tk.Label(self._rf, text=lbl_text, bg=C.BG, fg=_accent(),
-                 font=("Helvetica", 9, "bold")).pack(side=tk.LEFT, padx=(0, 6))
+                 font=("Helvetica", 9, "bold")).pack(anchor="w", pady=(0, 3))
+        _pill_bar = tk.Frame(self._rf, bg=C.BG)
+        _pill_bar.pack(anchor="w")
 
         pills = []
 
@@ -1617,15 +1609,16 @@ class ScaleViewer(tk.Toplevel):
             for cv in pills:
                 _draw(cv, cv._is_selected())
 
-        for s in range(1, n_detail + 1):
+        for s in range(1, n_scales + 1):
             if s not in self._scale_selections:
                 self._scale_selections[s] = tk.BooleanVar(
                     value=(s in getattr(self, "_default_scales", set())))
 
-            cv = tk.Canvas(self._rf, width=_PW, height=_PH,
+            cv = tk.Canvas(_pill_bar, width=_PW, height=_PH,
                            bg=C.CARD_BG, highlightthickness=0, bd=0,
                            cursor="pointinghand")
-            cv._label = str(s)
+            # The last plane is the coarse residual, labelled 'C'.
+            cv._label = "C" if s > n_detail else str(s)
 
             if is_multi:
                 _s = s
@@ -1649,11 +1642,8 @@ class ScaleViewer(tk.Toplevel):
             pills.append(cv)
             cv.pack(side=tk.LEFT, padx=2)
 
-        # refresh approach + n_scales pills too so they stay in sync
         if hasattr(self, '_approach_pills_refresh'):
             self._approach_pills_refresh()
-        if hasattr(self, '_n_scales_pills_refresh'):
-            self._n_scales_pills_refresh()
 
         self._rebuild_figure()
 
@@ -1708,25 +1698,24 @@ class ScaleViewer(tk.Toplevel):
 
     def _save_params(self):
         def _f(k): return self._pvars[k].get()
-        thresh_s = str(_f("thresh")).strip()
         try:
-            # thresh = fraction of the per-scale peak wavelet coefficient
-            thresh_frac = float(thresh_s) if thresh_s else None
             params = dict(
                 scales=int(self._n_scales_var.get()),
-                k_sigma=float(_f("k_sigma")),
+                k_sigma={sc: float(v.get()) for sc, v in self._k_vars.items()},
                 use_scale=int(self._selected_scale.get()),
                 min_area=int(_f("min_area")),
-                thresh=thresh_frac,
                 use_mean_map_sigma=True,
+                beam_fwhm_px=self._beam_px,
             )
             # In multi-scale mode, honour the checked detail scales.
             if self._multi_scale_enabled.get():
-                n_detail = int(self._n_scales_var.get()) - 1
-                chosen = [s for s in range(1, n_detail + 1)
+                # Range runs to n_scales, not n_detail: the coarse residual
+                # (the 'C' pill) is a selectable detection band too.
+                n_scales = int(self._n_scales_var.get())
+                chosen = [s for s in range(1, n_scales + 1)
                           if self._scale_selections.get(s)
                           and self._scale_selections[s].get()]
-                params["detect_scales"] = chosen or list(range(1, n_detail + 1))
+                params["detect_scales"] = chosen or list(range(1, n_scales))
         except ValueError as exc:
             messagebox.showerror("Bad parameter", str(exc), parent=self)
             return
@@ -1752,57 +1741,145 @@ class ScaleViewer(tk.Toplevel):
             self._fig = None
 
     def _rebuild_figure(self):
-        n_scales = int(self._n_scales_var.get())
+        """Grid of per-scale panels: one rendered band + its own k control.
+
+        Each band is its own small figure inside its own Tk frame, rather than
+        one figure of subplots rendered to a single image, because every panel
+        needs live widgets underneath it — a shared image cannot carry those.
+        """
         import math
+        n_scales = int(self._n_scales_var.get())
         n_rows = math.ceil(n_scales / 4)
         n_cols = math.ceil(n_scales / n_rows)
 
-        if self._fig:
-            plt.close(self._fig)
-            self._fig = None
-        if self._img_label:
-            self._img_label.destroy()
-            self._img_label = None
+        for fig in getattr(self, "_panel_figs", {}).values():
+            plt.close(fig)
+        for w in self._fig_frame.winfo_children():
+            w.destroy()
+        self._panels = {}         # scale -> FigureCanvasTkAgg
+        self._panel_figs = {}     # scale -> Figure
+        self._img_label = None
         self._img_photo = None
+        self._panel_photos = {}
 
-        cell_px = self._VW // n_cols
-        dpi     = 96
-        n_slots = n_rows * n_cols
-        self._fig = plt.Figure(
-            figsize=(self._VW / dpi, (n_rows * cell_px) / dpi),
-            dpi=dpi, facecolor=C.LOG_BG,
-        )
-        self._axes = []
-        for i in range(n_slots):
-            ax = self._fig.add_subplot(n_rows, n_cols, i + 1)
-            ax.set_xticks([]);  ax.set_yticks([])
+        # Larger cells than the old shared figure, since each now hosts its own
+        # controls and the window is sized to match.
+        cell_px = max(int(self._VW / n_cols), 150)
+        dpi = 96
+
+        grid = tk.Frame(self._fig_frame, bg=C.LOG_BG)
+        grid.pack(fill=tk.BOTH, expand=True)
+
+        for idx in range(n_scales):
+            scale = idx + 1                      # 1..n_detail, then coarse
+            r, c = divmod(idx, n_cols)
+            cell = tk.Frame(grid, bg=C.LOG_BG)
+            cell.grid(row=r, column=c, padx=3, pady=3, sticky="n")
+
+            fig = plt.Figure(figsize=(cell_px / dpi, cell_px / dpi), dpi=dpi,
+                             facecolor=C.LOG_BG)
+            ax = fig.add_axes([0.02, 0.02, 0.96, 0.90])
+            ax.set_xticks([]); ax.set_yticks([])
             ax.set_facecolor(C.LOG_BG)
             for sp in ax.spines.values():
-                sp.set_edgecolor(C.DIM);  sp.set_linewidth(0.5)
-            self._axes.append(ax)
-        self._fig.subplots_adjust(left=0.06, right=0.94,
-                                  top=0.86, bottom=0.06,
-                                  hspace=0.42, wspace=0.10)
-        self._img_label = tk.Label(self._fig_frame, bg=C.LOG_BG, bd=0)
-        self._img_label.pack(fill=tk.BOTH, expand=True)
+                sp.set_edgecolor(C.DIM); sp.set_linewidth(0.5)
+            fig._nemo_ax = ax
+            self._panel_figs[scale] = fig
+
+            # Draw through matplotlib's Tk canvas rather than rendering a PNG
+            # into a Label.  Tk blits a PhotoImage one image-pixel per *point*,
+            # so on a HiDPI display a 1x bitmap is stretched over 2x2 device
+            # pixels and every subplot and label looks soft.  FigureCanvasTkAgg
+            # tracks the device pixel ratio and renders at the screen's real
+            # resolution, which is also faster (no PNG encode/decode per draw).
+            canvas = FigureCanvasTkAgg(fig, master=cell)
+            canvas.get_tk_widget().configure(bg=C.LOG_BG, highlightthickness=0,
+                                             bd=0)
+            canvas.get_tk_widget().pack()
+            self._panels[scale] = canvas
+
+            self._build_k_control(cell, scale)
+
         self._n_scales_last = n_scales
-        if hasattr(self, '_slider'):
+        if hasattr(self, "_slider"):
             self._draw()
 
-    @staticmethod
-    def _detection_mask(coeff_plane, band, alpha, ksig, min_area):
-        """Detected-region mask for one detail scale at the current thresholds.
+    def _build_k_control(self, parent, scale: int):
+        """Centred [-] [value] [+] for this band's k, with its own symbol.
 
-        Mirrors `detect.detect_all_scales`: peak-fraction gate (alpha · max),
-        optional per-scale noise gate (ksig · MAD σ), then a min-area filter.
+        The threshold is per scale because a single k does not give a single
+        false-positive rate: at coarse scales the a trous kernel is wider, so a
+        noise excursion covers more area and clears a beam-sized minimum far
+        more easily.  Measured on IC5179, blank-sky contamination ran
+        8.4/15.2/19.2% at scales 2/3/4 for k=3, flattening to 7.0/7.9/8.5%
+        only once k was raised to 7.
         """
-        peak = float(band.max())
-        if peak <= 0:
+        n_detail = int(self._n_scales_var.get()) - 1
+        is_coarse = scale > n_detail
+        tag = "C" if is_coarse else str(scale)
+
+        if scale not in self._k_vars:
+            self._k_vars[scale] = tk.DoubleVar(
+                value=float(self._k_defaults.get(scale, 3.0)))
+        var = self._k_vars[scale]
+
+        row = tk.Frame(parent, bg=C.LOG_BG)
+        row.pack(pady=(3, 0))
+
+        _rich_label(row, [("\u03bb", "n"), (tag, "s"),
+                          (" (\u03c3", "n"), (tag, "s"), (")", "n")],
+                    bg=C.LOG_BG,
+                    fg="#000000" if C._current_theme == "light" else "#ffffff"
+                    ).pack(side=tk.LEFT, padx=(0, 6))
+
+        ent_var = tk.StringVar(value=f"{var.get():.1f}")
+
+        def _commit(v):
+            v = max(0.0, min(50.0, float(v)))
+            var.set(v)
+            ent_var.set(f"{v:.1f}")
+            self._draw()
+
+        def _step(d):
+            try:
+                _commit(float(ent_var.get()) + d)
+            except (ValueError, tk.TclError):
+                _commit(var.get())
+
+        def _typed(*_):
+            try:
+                _commit(float(ent_var.get()))
+            except (ValueError, tk.TclError):
+                ent_var.set(f"{var.get():.1f}")
+
+        def _btn(txt, cmd):
+            b = tk.Label(row, text=txt, bg=C.CARD_BG, fg=_accent(), width=2,
+                         font=("Helvetica", 10, "bold"), cursor="pointinghand")
+            b.pack(side=tk.LEFT, padx=1)
+            b.bind("<ButtonRelease-1>", lambda e: cmd())
+            return b
+
+        _btn("\u2212", lambda: _step(-0.5))
+        ent = tk.Entry(row, textvariable=ent_var, width=5, justify="center",
+                       bg=C.LOG_BG, fg=_accent(), insertbackground=_accent(),
+                       relief=tk.FLAT, highlightthickness=1,
+                       highlightbackground=C.DIM, font=("Courier", 9))
+        ent.pack(side=tk.LEFT, padx=2)
+        ent.bind("<Return>", _typed)
+        ent.bind("<FocusOut>", _typed)
+        _btn("+", lambda: _step(0.5))
+
+    @staticmethod
+    def _detection_mask(coeff_plane, band, ksig, min_area):
+        """Detected-region mask for one detail scale at the current threshold.
+
+        Mirrors `detect.detect_all_scales`: the per-scale noise gate
+        (ksig · MAD σ), then a min-area filter.
+        """
+        if float(band.max()) <= 0:
             return None
-        binary = band > alpha * peak
-        if ksig and ksig > 0:
-            sig = 1.4826 * np.median(np.abs(coeff_plane - np.median(coeff_plane))) + 1e-12
-            binary &= band > (ksig * sig)
+        sig = 1.4826 * np.median(np.abs(coeff_plane - np.median(coeff_plane))) + 1e-12
+        binary = band > (ksig * sig)
         if not binary.any():
             return None
         from scipy.ndimage import label as _label
@@ -1850,63 +1927,47 @@ class ScaleViewer(tk.Toplevel):
                 return float(v.get()) if v is not None else default
             except Exception:
                 return default
-        alpha    = _pget("thresh", 0.1)
-        ksig     = _pget("k_sigma", 0.0)
         min_area = int(_pget("min_area", 20))
 
-        for i, ax in enumerate(self._axes):
+        from nemo.detect import resolve_k_sigma
+
+        for scale, canvas in self._panels.items():
+            fig = self._panel_figs.get(scale)
+            if fig is None or not canvas.get_tk_widget().winfo_exists():
+                continue
+            i = scale - 1
+            ax = fig._nemo_ax
             ax.clear()
-            ax.set_xticks([]);  ax.set_yticks([])
+            ax.set_xticks([]); ax.set_yticks([])
             ax.set_facecolor(C.LOG_BG)
 
-            if i < n_scales:
-                is_coarse = (i == n_detail)
-                band      = np.clip(coeffs[i], 0, None)
-                vmax      = float(np.nanpercentile(band, 99.5)) if band.max() > 0 else 1e-9
-                ax.imshow(band, cmap="seismic", origin="lower", vmin=-vmax, vmax=vmax)
-                scale_num = i + 1
-                is_chosen = (not is_coarse) and (scale_num in selected_scales)
-                label     = "Coarse Scale" if is_coarse else f"Scale {scale_num}"
-                ax.set_title(label,
-                             color=_accent() if is_chosen else C.STEP_LABEL_TXT,
-                             fontsize=8, pad=8,
-                             fontweight="bold" if is_chosen else "normal")
-                for sp in ax.spines.values():
-                    sp.set_edgecolor(_accent() if is_chosen else C.DIM)
-                    sp.set_linewidth(1.5 if is_chosen else 0.5)
+            is_coarse = (i == n_detail)
+            band = np.clip(coeffs[i], 0, None)
+            vmax = float(np.nanpercentile(band, 99.5)) if band.max() > 0 else 1e-9
+            ax.imshow(band, cmap="seismic", origin="lower", vmin=-vmax, vmax=vmax)
 
-                # Overlay the detected regions at the current thresholds: paint
-                # everything *outside* the mask white and outline it in white.
-                # The coarse residual is never thresholded — it stays untouched.
-                if not is_coarse:
-                    mask = self._detection_mask(coeffs[i], band, alpha, ksig, min_area)
-                    if mask is None:
-                        mask = np.zeros(band.shape, dtype=bool)
-                    ov = np.ones(mask.shape + (4,), dtype=np.float32)  # opaque white
-                    ov[mask, 3] = 0.0                                  # clear inside mask
-                    ax.imshow(ov, origin="lower", interpolation="nearest")
-                    if mask.any():
-                        ax.contour(mask.astype(float), [0.5],
-                                   colors=["white"], linewidths=0.8)
-            else:
-                ax.set_visible(False)
+            is_chosen = scale in selected_scales
+            label = "Coarse Scale" if is_coarse else f"Scale {scale}"
+            ax.set_title(label,
+                         color=_accent() if is_chosen else C.STEP_LABEL_TXT,
+                         fontsize=8, pad=6,
+                         fontweight="bold" if is_chosen else "normal")
+            for sp in ax.spines.values():
+                sp.set_edgecolor(_accent() if is_chosen else C.DIM)
+                sp.set_linewidth(1.5 if is_chosen else 0.5)
 
-        if self._img_label and self._img_label.winfo_exists():
-            import io as _io
-            from PIL import Image as _PilImg, ImageTk as _ImageTk
-            buf = _io.BytesIO()
-            self._fig.savefig(buf, format="png", dpi=96,
-                              bbox_inches="tight", pad_inches=0.1,
-                              facecolor=self._fig.get_facecolor())
-            buf.seek(0)
-            pil = _PilImg.open(buf).convert("RGB")
-            # `bbox_inches="tight"` crops to content; pad extra whitespace on
-            # the left/right (figure background colour) so the subplots are
-            # not flush against the window edges.
-            side_pad = 48
-            fc = self._fig.get_facecolor()
-            bg = tuple(int(round(c * 255)) for c in fc[:3])
-            padded = _PilImg.new("RGB", (pil.width + 2 * side_pad, pil.height), bg)
-            padded.paste(pil, (side_pad, 0))
-            self._img_photo = _ImageTk.PhotoImage(padded)
-            self._img_label.configure(image=self._img_photo)
+            # Detected regions at this band's own k: paint outside the mask
+            # white and outline it, so the selection is visible per panel.
+            ksig = resolve_k_sigma(
+                {sc: v.get() for sc, v in self._k_vars.items()}, scale)
+            mask = self._detection_mask(coeffs[i], band, ksig, min_area)
+            if mask is None:
+                mask = np.zeros(band.shape, dtype=bool)
+            ov = np.ones(mask.shape + (4,), dtype=np.float32)
+            ov[mask, 3] = 0.0
+            ax.imshow(ov, origin="lower", interpolation="nearest")
+            if mask.any():
+                ax.contour(mask.astype(float), [0.5],
+                           colors=["white"], linewidths=0.8)
+
+            canvas.draw_idle()

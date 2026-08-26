@@ -7,7 +7,16 @@ from .widgets import _FlatBtn, make_slider_box
 
 
 class WaveletParamsDialog(tk.Toplevel):
-    """Modal dialog: edit and save WaveletDetector parameters."""
+    """Modal dialog: edit and save WaveletDetector parameters.
+
+    .. warning::
+
+       **Unused.**  "Configure Detection" opens :class:`~nemo.gui.viewers.
+       ScaleViewer` instead (via ``CubeCard._open_configure`` →
+       ``_view_choose_scales``).  This class is imported by ``card.py`` but
+       never instantiated, so edits here change nothing the user sees.  Edit
+       ``ScaleViewer`` instead, or delete this class.
+    """
 
     def __init__(self, master, on_save, current: dict | None = None):
         super().__init__(master)
@@ -18,7 +27,8 @@ class WaveletParamsDialog(tk.Toplevel):
         self._on_save = on_save
 
         defaults = dict(scales=6, k_sigma=5.0, use_scale=5,
-                        min_area=20, thresh="", use_mean_map_sigma=True)
+                        min_area="", use_mean_map_sigma=True,
+                        beam_fwhm_px="")
         if current:
             defaults.update({k: ("" if v is None else v) for k, v in current.items()})
 
@@ -31,12 +41,18 @@ class WaveletParamsDialog(tk.Toplevel):
             ("Scales (total starlet levels)",        "scales",             "int",   (2, 12)),
             ("k-sigma (detection threshold)",        "k_sigma",            "float", None),
             ("Use scale (1-based detail band)",      "use_scale",          "int",   (1, 11)),
-            ("Min area (px, discard smaller blobs)", "min_area",           "int",   (1, 500)),
-            ("Absolute threshold (blank = auto)",    "thresh",             "str",   None),
+            ("Min area (px, blank = one beam)",      "min_area",           "str",   None),
             ("Use mean-map sigma reference",         "use_mean_map_sigma", "bool",  None),
+            ("Beam FWHM (px, blank = auto/off)",     "beam_fwhm_px",       "str",   None),
         ]
         self._vars: dict[str, tk.Variable] = {}
         for r, (label, key, typ, rng) in enumerate(fields, start=1):
+            if typ == "sep":
+                tk.Label(self, text=label.replace("__sep__", ""), bg=BG,
+                         fg=ACCENT, font=("Helvetica", 9, "bold"),
+                         anchor="w").grid(row=r, column=0, columnspan=2,
+                                          padx=14, pady=(10, 2), sticky="w")
+                continue
             tk.Label(self, text=label, bg=BG, fg="white",
                      font=("Helvetica", 9), anchor="w").grid(row=r, column=0, **pad)
             if typ == "bool":
@@ -73,23 +89,44 @@ class WaveletParamsDialog(tk.Toplevel):
 
     def _save(self):
         def _f(k): return self._vars[k].get()
-        thresh_s = str(_f("thresh")).strip()
+
+        def _opt(k, cast):
+            """Blank entry -> None, so 'off'/'auto' is expressible in the UI."""
+            s = str(_f(k)).strip()
+            return cast(s) if s else None
+
         try:
             params = dict(
                 scales=int(_f("scales")), k_sigma=float(_f("k_sigma")),
-                use_scale=int(_f("use_scale")), min_area=int(_f("min_area")),
-                thresh=float(thresh_s) if thresh_s else None,
+                use_scale=int(_f("use_scale")),
+                min_area=_opt("min_area", int),
                 use_mean_map_sigma=bool(_f("use_mean_map_sigma")),
+                beam_fwhm_px=_opt("beam_fwhm_px", float),
             )
         except ValueError as exc:
             messagebox.showerror("Bad parameter", str(exc), parent=self)
             return
+
+        if params["min_area"] is None and params["beam_fwhm_px"] is None:
+            messagebox.showwarning(
+                "Min area",
+                "Min area is blank but no beam FWHM is set, so it falls back "
+                "to 10 px rather than one beam.",
+                parent=self)
+
         self._on_save(params)
         self.destroy()
 
 
 class FlowParamsDialog(tk.Toplevel):
-    """Modal dialog: edit and save FlowTracker parameters."""
+    """Modal dialog: edit and save FlowTracker parameters.
+
+    .. warning::
+
+       **Unused.**  The flow card renders its parameters as inline sliders
+       (``CubeCard._build_flow_controls``), not through this dialog, and
+       nothing imports this class.  Edits here change nothing the user sees.
+    """
 
     def __init__(self, master, on_save, current: dict | None = None):
         super().__init__(master)
@@ -116,7 +153,13 @@ class FlowParamsDialog(tk.Toplevel):
         for r, (label, key, typ, rng) in enumerate(fields, start=1):
             tk.Label(self, text=label, bg=BG, fg="white",
                      font=("Helvetica", 9), anchor="w").grid(row=r, column=0, **pad)
-            if typ == "int" and rng:
+            if typ == "bool":
+                v = tk.BooleanVar(value=bool(defaults[key]))
+                tk.Checkbutton(self, variable=v, bg=BG, activebackground=BG,
+                               selectcolor=CARD_BG, fg=ACCENT,
+                               relief=tk.FLAT, bd=0).grid(
+                                   row=r, column=1, padx=14, pady=5, sticky="w")
+            elif typ == "int" and rng:
                 v = tk.IntVar(value=int(defaults[key]))
                 tk.Spinbox(self, from_=rng[0], to=rng[1], textvariable=v,
                            width=6, bg=CARD_BG, fg="white",

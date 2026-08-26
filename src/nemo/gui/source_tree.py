@@ -25,6 +25,7 @@ def _hex_to_rgb01(h):
     return tuple(int(h[i:i + 2], 16) / 255 for i in (0, 2, 4))
 
 
+
 def hsrc_channel_masks(hierarchical_sources, tracks_per_scale):
     """Return {h_id: {channel: [mask, ...]}} for every hierarchical source."""
     tracks_by_scale_id = {}
@@ -125,13 +126,27 @@ class SourceTreePanel(tk.Frame):
         from tkinter import font as tkfont
         self._font = tkfont.Font(family="Helvetica", size=10, weight="bold")
 
+        # Indent by *scale*, not by tree depth.  Names come from
+        # ``assign_tree_names`` which letters nodes by scale (A = coarsest), so
+        # indenting by depth put a D attached straight to a B at the same
+        # column as a C — the letters said one thing and the layout another.
+        #
+        # A node skips a level whenever no source at the intervening scale
+        # contained it: the linking loop walks nearest-coarser-first and breaks
+        # on the first match (hierarchy.py:334), so with no C-scale parent
+        # available a D attaches directly to B.  Indenting by scale makes every
+        # C share a column and every D share a column, and renders that skip as
+        # a visible gap instead of hiding it.
+        scales_desc = sorted({h.scale for h, _d in self.order}, reverse=True)
+        self._scale_rank = {s: i for i, s in enumerate(scales_desc)}
+
         # pill geometry
         self._nodes = []   # (h, depth, x1, y1, x2, y2, cy, label)
         max_x = self.X0
         for i, (h, depth) in enumerate(self.order):
             label = self.name.get(h.id, f"#{h.id}")
             tw = self._font.measure(label)
-            x1 = self.X0 + depth * self.INDENT
+            x1 = self.X0 + self._scale_rank.get(h.scale, depth) * self.INDENT
             cy = self.ROW_H // 2 + i * self.ROW_H
             x2 = x1 + tw + 20
             self._nodes.append((h, depth, x1, cy - self.PILL_H // 2,
@@ -139,6 +154,7 @@ class SourceTreePanel(tk.Frame):
             max_x = max(max_x, x2)
         cv_w = int(max_x + 8)
         cv_h = max(self.ROW_H, self.ROW_H * len(self.order))
+
 
         self._canvas = tk.Canvas(self, bg=C.BG, width=cv_w,
                                  highlightthickness=0, bd=0)
@@ -216,7 +232,10 @@ class SourceTreePanel(tk.Frame):
             if parent is None or parent.id not in node_by_id:
                 continue
             p_cy = node_by_id[parent.id][6]
-            vx = self.X0 + depth * self.INDENT - self.INDENT // 2
+            # Elbow sits just left of the child's own scale column, so a
+            # skipped scale level shows as a longer horizontal run.
+            rank = self._scale_rank.get(h.scale, depth)
+            vx = self.X0 + rank * self.INDENT - self.INDENT // 2
             cv.create_line(vx, p_cy, vx, cy, fill=line_col, width=1)
             cv.create_line(vx, cy, x1, cy, fill=line_col, width=1)
 
@@ -237,6 +256,7 @@ class SourceTreePanel(tk.Frame):
             cv.create_rectangle(x1, y1, x2, y2, fill=fill, outline=outline, width=1)
             cv.create_text((x1 + x2) // 2, cy, text=label,
                            font=self._font, fill=txt_col)
+
 
     # ---------------------------------------------------------------- events
     def _on_click(self, event):

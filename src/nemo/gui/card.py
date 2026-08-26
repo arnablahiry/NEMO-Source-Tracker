@@ -18,6 +18,7 @@ from .widgets import _FlatBtn, _QueueStream, make_slider_box
 from .dialogs import WaveletParamsDialog, FalseDetParamsDialog
 from .viewers import SliceViewer, ScaleViewer
 from .analysis import CombinedAnalysisWindow, IndividualAnalysisWindow, _source_colors
+from ..utils import clamped_bbox
 from .loaders import load_cube_file, _moment0, _apply_scaling
 
 
@@ -283,13 +284,14 @@ def _sources_renderer(cube: np.ndarray, tracks: list, sources: list,
                     continue
                 r0, r1 = int(rows.min()), int(rows.max())
                 c0, c1 = int(cols.min()), int(cols.max())
+                _bx, _by, _bw, _bh, _lx, _ly = clamped_bbox(
+                    r0, r1, c0, c1, PAD_BB, mask.shape)
                 ax.add_patch(_Rect(
-                    (c0 - PAD_BB, r0 - PAD_BB),
-                    c1 - c0 + 2*PAD_BB, r1 - r0 + 2*PAD_BB,
+                    (_bx, _by), _bw, _bh,
                     linewidth=0.8, edgecolor=lcol,
                     facecolor="none", zorder=4,
                 ))
-                ax.text(c1 + PAD_BB, r1 + PAD_BB, str(sid),
+                ax.text(_lx, _ly, str(sid),
                         ha="center", va="center", fontsize=6,
                         color="black", fontweight="bold",
                         bbox=dict(boxstyle="circle,pad=0.2",
@@ -443,12 +445,13 @@ def _hierarchical_sources_renderer(cube, hierarchical_sources, tracks_per_scale,
                 if len(rows):
                     r0, r1 = int(rows.min()), int(rows.max())
                     c0, c1 = int(cols.min()), int(cols.max())
+                    _bx, _by, _bw, _bh, _lx, _ly = clamped_bbox(
+                        r0, r1, c0, c1, PAD_BB, union.shape)
                     ax.add_patch(_Rect(
-                        (c0 - PAD_BB, r0 - PAD_BB),
-                        c1 - c0 + 2*PAD_BB, r1 - r0 + 2*PAD_BB,
+                        (_bx, _by), _bw, _bh,
                         linewidth=0.9, edgecolor=(r, g, b, 0.9),
                         facecolor="none", zorder=4))
-                    ax.text(c1 + PAD_BB, r1 + PAD_BB, names[h_id],
+                    ax.text(_lx, _ly, names[h_id],
                             ha="center", va="center", fontsize=6,
                             color="black", fontweight="bold",
                             bbox=dict(boxstyle="round,pad=0.2",
@@ -1470,14 +1473,37 @@ class CubeCard(tk.Frame):
                     on_params_saved=_on_saved,
                     card_0=self._app.cards[0] if self._app else None)
 
+    def _beam_fwhm_px(self):
+        """Beam FWHM in pixels from the loaded cube's header, or None.
+
+        The loader already extracts ``beam = (bmaj", bmin", bpa)`` and
+        ``pixscale`` ("/px) for drawing the beam ellipse; this reuses them so
+        the physical scale bounds need no manual entry.
+        """
+        c0 = self._app.cards[0] if self._app else None
+        beam = getattr(c0, "beam", None)
+        pixscale = getattr(c0, "pixscale", None)
+        if not beam or not pixscale:
+            return None
+        try:
+            bmaj, bmin, ps = float(beam[0]), float(beam[1]), float(pixscale)
+        except (TypeError, ValueError, IndexError):
+            return None
+        if bmaj <= 0 or bmin <= 0 or ps <= 0:
+            return None
+        return float(np.sqrt(bmaj * bmin) / ps)
+
     def _max_scale_wav_p(self, cube) -> dict:
         """Wavelet params with ``scales`` forced to the max 2-D scales the cube
         supports (use_scale clamped to a valid detail band)."""
         from ..detect import max_2d_scales, default_detect_scales
         wav_p = dict(self._wav_params or dict(
             scales=6, k_sigma=5.0, use_scale=5,
-            min_area=20, thresh=None, use_mean_map_sigma=True,
+            min_area=None, use_mean_map_sigma=True,
         ))
+        # Blank beam in the dialog means "read it from the header".
+        if wav_p.get("beam_fwhm_px") is None:
+            wav_p["beam_fwhm_px"] = self._beam_fwhm_px()
         n = max_2d_scales(cube.shape[1], cube.shape[2])
         wav_p["scales"] = n
         wav_p["use_scale"] = min(int(wav_p.get("use_scale", n - 1)), n - 1)
@@ -1499,6 +1525,31 @@ class CubeCard(tk.Frame):
         n_detail = n_scales - 1
         n_ch, H, W = cube.shape
 
+        from ..detect import beam_area_px, admissible_scales
+
+        beam = wav_p.get("beam_fwhm_px")
+        min_area = wav_p.get("min_area", 20)
+
+        if min_area is None:
+            min_area_s = (f"{int(np.ceil(beam_area_px(beam)))} px (one beam)"
+                          if beam else "10 px (no beam — fallback)")
+        else:
+            min_area_s = f"{min_area} px"
+
+        if beam:
+            allowed = admissible_scales(n_scales, beam)
+            req = wav_p.get("detect_scales") or []
+            dropped = [s for s in req if s not in set(allowed)]
+            bounds_s = (f"  Admissible bands : {allowed}"
+                        + (f"   dropped {dropped}" if dropped else "")
+                        + f"\n    beam {beam:.2f} px\n")
+        else:
+            bounds_s = ("  Admissible bands : unbounded "
+                        "(no beam — sub-beam bands may hold correlated noise)\n")
+
+        thresh_s = (f"  Threshold : k-sigma = {wav_p.get('k_sigma', 5.0)} "
+                    f"x per-scale noise\n")
+
         self._init_log_preview()
         self._append_log(
             f"Starlet (à trous IUWT) undecimated wavelet decomposition\n"
@@ -1506,8 +1557,9 @@ class CubeCard(tk.Frame):
             f"  Scales : {n_scales}  "
             f"({n_detail} detail band{'s' if n_detail != 1 else ''} + 1 coarse residual)\n"
             f"  k-sigma threshold : {wav_p.get('k_sigma', 5.0)}\n"
-            f"  Min component area : {wav_p.get('min_area', 20)} px\n\n"
-            f"Open Configure to inspect scales per channel.\n"
+            f"  Min component area : {min_area_s}\n"
+            + thresh_s + bounds_s +
+            f"\nOpen Configure to inspect scales per channel.\n"
             f"Click Run Source Identification to run detection and tracking.\n"
         )
         self.btn_configure.enable()

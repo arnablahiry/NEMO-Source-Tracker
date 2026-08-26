@@ -5,6 +5,35 @@ import numpy as np
 import matplotlib.patches as mpatches
 
 
+def clamped_bbox(r0: int, r1: int, c0: int, c1: int, pad: int,
+                 shape: tuple[int, int]):
+    """Padded bounding box, capped at the image border.
+
+    A source touching the frame edge would otherwise get a box hanging outside
+    the data, and its label drawn off-image where it is clipped away entirely.
+    Capping keeps the box flush with the border instead of overhanging it, and
+    keeps the label inside the frame.
+
+    Parameters
+    ----------
+    r0, r1, c0, c1 : inclusive row/column bounds of the source footprint.
+    pad : padding in pixels to add on each side before capping.
+    shape : ``(H, W)`` of the image the box is drawn on.
+
+    Returns
+    -------
+    (x, y, w, h, label_x, label_y)
+        Rectangle origin/size in matplotlib data coordinates (``origin="lower"``
+        imshow), plus a label anchor guaranteed to sit inside the frame.
+    """
+    h_img, w_img = int(shape[0]), int(shape[1])
+    x0 = max(int(c0) - pad, 0)
+    y0 = max(int(r0) - pad, 0)
+    x1 = min(int(c1) + pad, w_img - 1)
+    y1 = min(int(r1) + pad, h_img - 1)
+    return x0, y0, max(x1 - x0, 1), max(y1 - y0, 1), x1, y1
+
+
 def add_beam(
     ax,
     bmin_pix: float,

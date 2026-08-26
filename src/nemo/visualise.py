@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import warnings
 import numpy as np
+from .utils import clamped_bbox
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 
@@ -263,16 +264,16 @@ def publication(
                     c0, c1 = int(rcols.min()), int(rcols.max())
                     pad       = 5
                     root_rgb, _ = h_colors[root.id]
+                    _bx, _by, _bw, _bh, _lx, _ly = clamped_bbox(
+                        r0, r1, c0, c1, pad, rmask.shape)
                     rect = mpatches.Rectangle(
-                        (c0 - pad, r0 - pad),
-                        c1 - c0 + 2 * pad,
-                        r1 - r0 + 2 * pad,
+                        (_bx, _by), _bw, _bh,
                         linewidth=1.0, edgecolor=root_rgb,
                         facecolor="none", linestyle="--", alpha=0.7, zorder=5,
                     )
                     ax.add_patch(rect)
                     ax.text(
-                        c1 + pad + 3, r1 + pad + 3, names[root.id],
+                        _lx, _ly, names[root.id],
                         ha="left", va="bottom", fontsize=10,
                         fontfamily="serif", fontweight="bold", color="white",
                         bbox=dict(boxstyle="round,pad=0.25",

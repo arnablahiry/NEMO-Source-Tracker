@@ -17,6 +17,8 @@ from .detect import (
     ChannelDetection,
     WaveletDetector,
     load_cube,
+    beam_fwhm_px,
+    beam_area_px,
     active_channels,
     detect_cube_per_channel,
     detect_all_scales,
@@ -66,6 +68,8 @@ __all__ = [
     "PerChannelScaleDetections",
     # I/O helpers
     "load_cube",
+    "beam_fwhm_px",
+    "beam_area_px",
     "active_channels",
     # Lower-level functions (for advanced use)
     "detect_cube_per_channel",

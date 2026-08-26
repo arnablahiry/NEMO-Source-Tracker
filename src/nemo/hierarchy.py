@@ -40,6 +40,7 @@ class HierarchicalSourceGroup:
     spectral_overlap: float = 0.0
     match_confidence: float = 0.0
 
+
     velocity_min: float = 0.0
     velocity_max: float = 0.0
     centroid_velocity: float = 0.0

@@ -1181,8 +1181,7 @@ def run_flow_tracker(
     scales: int = 6,
     k_sigma: float = 5.0,
     use_scale: int = 5,
-    min_area: int = 20,
-    thresh: float | None = None,
+    min_area: int | None = None,
     use_mean_map_sigma: bool = True,
     min_match_overlap: int = 5,
     max_gap_channels: int = 5,
@@ -1251,7 +1250,7 @@ def run_flow_tracker(
         print(f"[run_flow_tracker]  cube={cube.shape}  channels={len(channel_list)}"
               f"  (ch {channel_list[0]}–{channel_list[-1]})")
         print(f"  wavelet: scales={scales}  k_sigma={k_sigma}  use_scale={use_scale}"
-              f"  min_area={min_area}  thresh={thresh}  mean_map_sigma={use_mean_map_sigma}")
+              f"  min_area={min_area}  mean_map_sigma={use_mean_map_sigma}")
         print(f"  tracker: min_match_overlap={min_match_overlap}"
               f"  max_gap_channels={max_gap_channels}"
               f"  min_displacement={min_displacement}\n")
@@ -1261,7 +1260,7 @@ def run_flow_tracker(
     detections = detect_cube_per_channel(
         cube, channel_list=channel_list,
         scales=scales, k_sigma=k_sigma,
-        use_scale=use_scale, min_area=min_area, thresh=thresh,
+        use_scale=use_scale, min_area=min_area,
         use_mean_map_sigma=use_mean_map_sigma,
     )
     if verbose:
@@ -1738,7 +1737,6 @@ def main() -> None:
     ap.add_argument("--k-sigma",          type=float, default=5.0)
     ap.add_argument("--use-scale",        type=int,   default=5)
     ap.add_argument("--min-area",         type=int,   default=20)
-    ap.add_argument("--thresh",           type=float, default=None)
     ap.add_argument("--min-match-overlap", type=int,   default=5,
                     help="Min pixel overlap (advected mask ∩ component) to match a continuation")
     ap.add_argument("--min-displacement", type=float, default=3.0,
@@ -1762,7 +1760,7 @@ def main() -> None:
      good_sources, false_dets, src_data, src_colors) = run_flow_tracker(
         cube, channel_list=channel_list,
         scales=args.scales, k_sigma=args.k_sigma,
-        use_scale=args.use_scale, min_area=args.min_area, thresh=args.thresh,
+        use_scale=args.use_scale, min_area=args.min_area,
         min_match_overlap=args.min_match_overlap,
         min_displacement=args.min_displacement,
         verbose=True,
