@@ -17,25 +17,43 @@ from .detect import (
     ChannelDetection,
     WaveletDetector,
     load_cube,
+    beam_fwhm_px,
+    beam_area_px,
     active_channels,
     detect_cube_per_channel,
+    detect_all_scales,
     wavelet_footprints,
     reference_sigmas_from_mean_map,
 )
-from .gui import NemoGUI, launch
+def __getattr__(name):
+    if name in ("NemoGUI", "launch"):
+        from . import gui as _gui
+        return getattr(_gui, name)
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+from .hierarchy import (
+    HierarchicalSourceGroup,
+    ScaleDetection,
+    PerChannelScaleDetections,
+    build_hierarchical_sources,
+)
+from . import visualise
 from .track import (
     FlowTracker,
     TrackingResult,
     run_flow_tracker,
     compute_flow_sequence,
     link_tracks,
+    link_tracks_per_scale,
     classify_kinematic,
     group_into_sources,
+    source_per_scale,
     classify_sources,
     masked_flow_tvl1,
 )
 
 __all__ = [
+    # Visualisation
+    "visualise",
     # GUI
     "NemoGUI",
     "launch",
@@ -43,20 +61,29 @@ __all__ = [
     "WaveletDetector",
     "FlowTracker",
     "TrackingResult",
-    # Data container
+    # Data containers
     "ChannelDetection",
+    "HierarchicalSourceGroup",
+    "ScaleDetection",
+    "PerChannelScaleDetections",
     # I/O helpers
     "load_cube",
+    "beam_fwhm_px",
+    "beam_area_px",
     "active_channels",
     # Lower-level functions (for advanced use)
     "detect_cube_per_channel",
+    "detect_all_scales",
     "wavelet_footprints",
     "reference_sigmas_from_mean_map",
     "run_flow_tracker",
     "compute_flow_sequence",
     "link_tracks",
+    "link_tracks_per_scale",
     "classify_kinematic",
     "group_into_sources",
+    "source_per_scale",
     "classify_sources",
+    "build_hierarchical_sources",
     "masked_flow_tvl1",
 ]

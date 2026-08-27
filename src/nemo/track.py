@@ -3,11 +3,16 @@
 Takes the list of per-channel detections produced by
 ``wavelet_detections.detect_cube_per_channel`` and runs a four-stage pipeline:
 
-Stage 1 — Masked optical flow
-    TV-L1 flow is computed between every consecutive channel pair, but only
-    inside the intersection of the two channels' union footprint masks.
-    Zeroing the images outside detected sources prevents artefact-level flow
-    vectors from leaking into the tracking step.
+Stage 1 — Masked optical flow on binary footprint masks
+    TV-L1 flow is computed between every consecutive channel pair on the
+    **binary union footprint masks** of the two channels (1 inside any
+    detected source, 0 elsewhere) — not on the raw intensity images.
+    Brightness constancy — TV-L1's core assumption — is trivially satisfied
+    for binary masks (1 → 1, 0 → 0), so the resulting flow tracks genuine
+    shape correspondence between channels rather than being distorted by
+    per-channel intensity changes (a source's spectral evolution).  Flow
+    vectors outside the joint mask region are clipped to zero so artefact-
+    level structure outside detected sources never influences tracking.
 
 Stage 2 — Track linking with split/merge detection
     Two-pass approach for symmetric split and merge detection.
@@ -71,7 +76,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 import numpy as np
-from scipy.ndimage import map_coordinates
+from scipy.ndimage import distance_transform_edt, map_coordinates
 from scipy.optimize import linear_sum_assignment
 from skimage.registration import optical_flow_tvl1
 
@@ -87,23 +92,157 @@ from .detect import (
 # Stage 1 — Masked optical flow
 # ---------------------------------------------------------------------------
 
+def signed_distance_field(mask: np.ndarray, clip: float) -> np.ndarray:
+    """Clipped signed distance transform of a boolean mask.
+
+    Positive inside the mask, negative outside, zero on the boundary, then
+    clipped to ``[-clip, +clip]``.
+
+    A binary mask carries image gradient only in the 1-2 px ring at its
+    boundary; everywhere else the field is flat, so TV-L1's data term has no
+    signal and cannot displace a footprint across empty space.  The signed
+    distance field has unit gradient *everywhere*, sloping toward the nearest
+    source, which is what lets flow bridge a gap between footprints that share
+    no pixels.  ``clip`` bounds the reach so one source's field does not
+    dominate the whole frame.
+
+    Parameters
+    ----------
+    mask :
+        Boolean (H, W).
+    clip :
+        Saturation distance in pixels.  Beyond it the field is flat again.
+
+    Returns
+    -------
+    np.ndarray
+        float32 (H, W).
+    """
+    inside  = distance_transform_edt(mask)
+    outside = distance_transform_edt(~mask)
+    return np.clip(inside - outside, -clip, clip).astype(np.float32)
+
+
+def _local_sdt_flow(
+    union_ref: np.ndarray,
+    union_tgt: np.ndarray,
+    ref_components: list,
+    window: int,
+    clip: float,
+    pad: int,
+) -> np.ndarray:
+    """Per-component signed-distance flow.
+
+    A signed distance field is *global*: its gradient at any pixel points at the
+    nearest source anywhere in the frame.  Solving one field over a crop that
+    spans several well-separated sources lets the coarse pyramid levels merge
+    them, and the solver then matches a footprint to the wrong source — which
+    shows up as a flow vector pointing backwards or sideways on a handful of
+    transitions.
+
+    Solving each component inside its own window removes the ambiguity: distant
+    sources fall outside the crop and cannot compete.  Flow is written only at
+    the component's own pixels, so components never overwrite each other.
+
+    Parameters
+    ----------
+    union_ref, union_tgt :
+        Boolean (H, W) union footprint masks of the two channels.  Only
+        *union_tgt* is used as a field; the reference field is built from each
+        component on its own (see below).
+    ref_components :
+        One boolean (H, W) mask per component in the reference channel.
+    window :
+        Half-size (px) of the square crop taken around each component centroid.
+        Must comfortably exceed the largest expected displacement.
+    clip :
+        Saturation distance for :func:`signed_distance_field`.
+    pad :
+        Extra margin (px) added around the window, keeping the variational
+        solution clear of the crop boundary.
+
+    Returns
+    -------
+    np.ndarray
+        (2, H, W) float32.  Zero outside the reference components.
+    """
+    H, W = union_ref.shape
+    flow = np.zeros((2, H, W), dtype=np.float32)
+
+    for comp in ref_components:
+        if not comp.any():
+            continue
+        cy, cx = np.argwhere(comp).mean(axis=0)
+        half = window + pad
+        y0, y1 = max(0, int(cy - half)), min(H, int(cy + half) + 1)
+        x0, x1 = max(0, int(cx - half)), min(W, int(cx + half) + 1)
+
+        # Reference side carries THIS detection only — including the channel's
+        # other components would put competing sources back into the field and
+        # reintroduce the mis-attribution this function exists to avoid.
+        sub_ref = comp[y0:y1, x0:x1]
+        # Target side is the union of the next channel's detections inside the
+        # window: the component must be free to land on any of them.
+        sub_tgt = union_tgt[y0:y1, x0:x1]
+        if not sub_ref.any() or not sub_tgt.any():
+            continue
+
+        r = signed_distance_field(sub_ref, clip).astype(np.float64)
+        t = signed_distance_field(sub_tgt, clip).astype(np.float64)
+        v, u = optical_flow_tvl1(r, t)
+
+        sub_comp = comp[y0:y1, x0:x1]
+        flow[0, y0:y1, x0:x1][sub_comp] = v[sub_comp]
+        flow[1, y0:y1, x0:x1][sub_comp] = u[sub_comp]
+
+    return flow
+
+
 def masked_flow_tvl1(
     img_ref: np.ndarray,
     img_tgt: np.ndarray,
     mask: np.ndarray,
+    pad: int = 16,
+    clip_outside: bool = True,
 ) -> np.ndarray:
     """TV-L1 optical flow restricted to *mask* pixels.
 
-    Both images are zeroed outside *mask* before the solver runs, so emission
-    structure outside detected source footprints never influences the flow
-    estimate inside them.
+    Operates on any pair of 2-D float arrays.  Both inputs are zeroed outside
+    *mask* before the solver runs, so structure outside the masked region
+    never influences the flow estimate inside it.
+
+    The canonical use in NEMO is to pass **binary union footprint masks**
+    (cast to float32) so that brightness constancy is trivially satisfied
+    and the flow tracks shape correspondence rather than intensity changes.
+
+    The solver runs only on a padded bounding box of *mask*, not the whole
+    frame.  Everything outside the mask is zeroed before and clipped after, so
+    the cropped solve is numerically equivalent inside the mask (the ``pad``
+    margin keeps the variational solution clear of the crop boundary) while
+    being dramatically cheaper on large cubes with localized sources — which
+    also keeps the GIL free enough for a responsive GUI.
 
     Parameters
     ----------
     img_ref, img_tgt :
-        2-D float32 channel images, shape (H, W).
+        2-D float arrays, shape (H, W).  In NEMO's pipeline these are
+        binary union footprint masks; the function accepts intensity images
+        too.
     mask :
         Boolean (H, W) — True where flow should be estimated.
+    pad :
+        Margin (px) added around the mask bounding box before solving.  Note
+        that ``optical_flow_tvl1`` is a coarse-to-fine pyramid solver whose
+        depth follows the *cropped* size (``downscale=2``, ``min_size=16``),
+        and large displacements are only recoverable at the coarse levels.  A
+        tight crop therefore caps the maximum recoverable displacement; it is
+        not merely a speed knob.
+    clip_outside :
+        When True (default) both inputs are zeroed outside *mask* before the
+        solve.  Set False for fields that carry meaning outside the footprints
+        — notably a signed distance field, whose whole purpose is the gradient
+        in the *gap* between disjoint footprints.  The mask still sets the crop
+        and still clips the returned flow.
 
     Returns
     -------
@@ -111,45 +250,103 @@ def masked_flow_tvl1(
         Shape (2, H, W) float32.  ``flow[0]`` = v (row displacement),
         ``flow[1]`` = u (col displacement).  Zero everywhere outside *mask*.
     """
-    r = (img_ref * mask).astype(np.float64)
-    t = (img_tgt * mask).astype(np.float64)
+    H, W = mask.shape
+    flow = np.zeros((2, H, W), dtype=np.float32)
+    if not mask.any():
+        return flow
+
+    # Solve only on a padded bounding box of the mask — the rest is zero.
+    rows = np.where(mask.any(axis=1))[0]
+    cols = np.where(mask.any(axis=0))[0]
+    y0 = max(0, int(rows[0]) - pad);  y1 = min(H, int(rows[-1]) + 1 + pad)
+    x0 = max(0, int(cols[0]) - pad);  x1 = min(W, int(cols[-1]) + 1 + pad)
+
+    m = mask[y0:y1, x0:x1]
+    if clip_outside:
+        r = (img_ref[y0:y1, x0:x1] * m).astype(np.float64)
+        t = (img_tgt[y0:y1, x0:x1] * m).astype(np.float64)
+    else:
+        r = img_ref[y0:y1, x0:x1].astype(np.float64)
+        t = img_tgt[y0:y1, x0:x1].astype(np.float64)
     v, u = optical_flow_tvl1(r, t)
-    flow = np.stack([v, u], axis=0).astype(np.float32)
-    flow[:, ~mask] = 0.0
+    sub = np.stack([v, u], axis=0).astype(np.float32)
+    if clip_outside:
+        sub[:, ~m] = 0.0
+    flow[:, y0:y1, x0:x1] = sub
     return flow
 
 
 def compute_flow_sequence(
     detections: list[ChannelDetection],
     verbose: bool = False,
+    field: str = "binary",
+    pad: int = 16,
+    sdt_clip: float = 24.0,
+    local_window: int | None = None,
 ) -> list[tuple[int, int, np.ndarray, np.ndarray]]:
     """Compute masked TV-L1 flow for every consecutive detection pair.
 
-    The joint mask is the *union* of the source footprints from both channels.
-    Using the union (rather than the intersection) is critical for split
-    detection: when a source splits into a new spatial location between
-    channels, the two components may not overlap at all.  With an intersection
-    mask the flow would be zero everywhere and the predicted centroid would
-    not move — causing the split-off component to be mis-classified as a new
-    independent source.  With the union mask the TV-L1 solver sees the
-    source signal on both sides and produces flow vectors that point from
-    the pre-split footprint toward the post-split footprint, allowing
-    :func:`link_tracks` to attribute the new component to the correct parent.
+    Flow is solved on the **binary union footprint masks** of each channel
+    pair — not on the raw intensity images.  Inside the union, every pixel
+    is 1.0 in both inputs, so TV-L1's brightness constancy assumption is
+    trivially satisfied and the resulting flow tracks shape correspondence
+    instead of being confounded by per-channel intensity changes (a source's
+    spectral evolution).  Flow outside the joint mask is clipped to zero.
+
+    The joint mask itself is the *union* of the source footprints from both
+    channels (rather than the intersection).  Using the union is critical
+    for split detection: when a source splits into a new spatial location
+    between channels, the two components may not overlap at all.  With an
+    intersection mask the flow region would be empty.  With the union mask,
+    the binary "footprint blob" in the reference channel is asked to warp
+    to the "two-blob" union in the target channel, giving flow vectors that
+    point from the pre-split footprint toward each post-split component —
+    which lets :func:`link_tracks` (forward) and :func:`_reconcile_splits`
+    (backward) attribute new components to the correct parent.
 
     Parameters
     ----------
     detections :
         Ordered list of :class:`~wavelet_detections.ChannelDetection` objects.
+    field :
+        ``"binary"`` (default, original behaviour) solves on the binary union
+        masks.  ``"sdt"`` solves on clipped signed distance fields instead,
+        which extends the bridgeable displacement from ~1.9x to ~6x the source
+        radius — enough to link footprints that are fully disjoint between
+        channels.  See :func:`signed_distance_field`.
+    pad :
+        Margin (px) around the mask bounding box passed to
+        :func:`masked_flow_tvl1`.  ``optical_flow_tvl1`` is a coarse-to-fine
+        pyramid solver whose depth is set by the *cropped* image size, and
+        large displacements are only recoverable at the coarse levels — so a
+        tight crop silently caps how far flow can reach.  Raise this well above
+        the largest source radius when tracking fast-moving emission.
+    sdt_clip :
+        Saturation distance (px) for ``field="sdt"``; ignored otherwise.
+    local_window :
+        With ``field="sdt"``, solve the flow separately for each component
+        inside a window of this half-size (px) instead of once over a crop
+        spanning the whole channel.  Strongly recommended whenever a channel
+        holds more than one source: a shared crop lets the coarse pyramid
+        levels merge well-separated sources, and a footprint then gets matched
+        to the wrong one.  ``None`` keeps the single shared solve.
 
     Returns
     -------
     list of (ch_ref, ch_tgt, flow, joint_mask) tuples.
+
+    Notes
+    -----
+    ``field="sdt"`` changes the scale of every flow-derived quantity.  In
+    particular ``flow_iou`` in :func:`remove_false_detections` rises for real
+    *and* spurious sources alike, so ``flow_iou_thresh`` must be recalibrated
+    against it — the default 0.25 is tuned for ``field="binary"``.
     """
     H, W = detections[0].image.shape
     n_pairs = len(detections) - 1
     if verbose:
-        print(f"[Stage 1] Masked TV-L1 optical flow  ({n_pairs} channel pairs, "
-              f"image {H}×{W})")
+        print(f"[Stage 1] Masked TV-L1 optical flow on binary footprint masks "
+              f"({n_pairs} channel pairs, image {H}×{W})")
     results = []
 
     zero_flow_count = 0
@@ -169,7 +366,38 @@ def compute_flow_sequence(
         joint_mask = union_ref | union_tgt
 
         if joint_mask.any():
-            flow = masked_flow_tvl1(d_ref.image, d_tgt.image, joint_mask)
+            # Feed the BINARY union masks (cast to float32) into TV-L1 instead
+            # of the raw intensity images.  This enforces brightness constancy
+            # (1 → 1, 0 → 0) so the flow encodes morphological shift, not
+            # intensity change.
+            if field == "sdt" and local_window is not None:
+                # One solve per component, each in its own window.
+                flow = _local_sdt_flow(
+                    union_ref, union_tgt, d_ref.footprint_masks,
+                    window=local_window, clip=sdt_clip, pad=pad,
+                )
+                mask_px = int(joint_mask.sum())
+                u, v = flow[1], flow[0]
+                mag = float(np.hypot(u[joint_mask], v[joint_mask]).max())
+                mag_max_all = max(mag_max_all, mag)
+                results.append((d_ref.channel, d_tgt.channel, flow, joint_mask))
+                if verbose:
+                    flag = "·" if mag < 0.1 else ("▸" if mag < 1.0 else "▶")
+                    print(f"  {flag} ch {d_ref.channel:4d}→{d_tgt.channel:<4d}  "
+                          f"mask {mask_px:6d} px  peak flow {mag:.3f} px")
+                continue
+            if field == "sdt":
+                # Unit-gradient field everywhere -> flow can cross gaps between
+                # footprints that share no pixels.
+                ref_field = signed_distance_field(union_ref, sdt_clip)
+                tgt_field = signed_distance_field(union_tgt, sdt_clip)
+            else:
+                ref_field = union_ref.astype(np.float32)
+                tgt_field = union_tgt.astype(np.float32)
+            flow = masked_flow_tvl1(
+                ref_field, tgt_field, joint_mask, pad=pad,
+                clip_outside=(field != "sdt"),
+            )
             mask_px = int(joint_mask.sum())
             u, v = flow[1], flow[0]
             mag = float(np.hypot(u[joint_mask], v[joint_mask]).max()) if joint_mask.any() else 0.0
@@ -262,6 +490,83 @@ def _advect_mask(mask: np.ndarray, flow: np.ndarray) -> np.ndarray:
 
 
 # ---------------------------------------------------------------------------
+# Multi-scale tracking
+# ---------------------------------------------------------------------------
+
+def link_tracks_per_scale(
+    detections_per_scale: dict[int, list],
+    min_match_overlap: int = 5,
+    max_gap_channels: int = 5,
+    verbose: bool = False,
+) -> dict[int, list]:
+    """Run track linking separately for each scale.
+
+    Parameters
+    ----------
+    detections_per_scale : dict[int, list[ChannelDetection]]
+        scale → detections (one per channel at that scale)
+    min_match_overlap : int
+    max_advect_px :
+        Reject a continuation whose advected footprint centroid moved further
+        than this many pixels in one channel step.  ``None`` (default) means no
+        cap, matching the original behaviour.  A cap matters when flow is
+        computed on a signed distance field: that field's gradient points at
+        the nearest source from *any* distance, so a track whose source has
+        genuinely vanished gets dragged onto an unrelated neighbour instead of
+        being deactivated.  Set it a little above the largest physically
+        plausible per-channel displacement.
+    max_gap_channels : int
+    verbose : bool
+
+    Returns
+    -------
+    dict[int, list[dict]]
+        scale → tracks
+    """
+    result = {}
+    for scale in sorted(detections_per_scale.keys()):
+        dets = detections_per_scale[scale]
+        flow_seq = compute_flow_sequence(dets, verbose=False)
+        tracks = link_tracks(
+            dets, flow_seq,
+            min_match_overlap=min_match_overlap,
+            max_gap_channels=max_gap_channels,
+            verbose=False,
+        )
+        # Add scale info to each track
+        for t in tracks:
+            t['scale'] = scale
+        result[scale] = tracks
+
+    if verbose:
+        for scale in sorted(result.keys()):
+            print(f"  scale {scale}: {len(result[scale])} tracks")
+
+    return result
+
+
+def source_per_scale(
+    tracks_per_scale: dict[int, list],
+) -> dict[int, list]:
+    """Group tracks into sources separately for each scale.
+
+    Parameters
+    ----------
+    tracks_per_scale : dict[int, list[dict]]
+        scale → tracks
+
+    Returns
+    -------
+    dict[int, list[dict]]
+        scale → sources
+    """
+    result = {}
+    for scale in sorted(tracks_per_scale.keys()):
+        result[scale] = group_into_sources(tracks_per_scale[scale])
+    return result
+
+
+# ---------------------------------------------------------------------------
 # Stage 2 — Track linking with split/merge detection
 # ---------------------------------------------------------------------------
 
@@ -270,6 +575,7 @@ def link_tracks(
     flow_seq: list[tuple[int, int, np.ndarray, np.ndarray]],
     min_match_overlap: int = 5,
     max_gap_channels: int = 5,
+    max_advect_px: float | None = None,
     verbose: bool = False,
 ) -> list[dict]:
     """Link per-channel component detections into multi-channel tracks.
@@ -384,18 +690,28 @@ def link_tracks(
         det_to_track: dict[int, dict] = {}
 
         for r, c in zip(row_ind, col_ind):
-            if -cost[r, c] >= min_match_overlap:
-                t = active[r]
-                t['trajectory'].append(
-                    (ch_tgt, float(d_tgt.peaks[c][0]), float(d_tgt.peaks[c][1]))
-                )
-                t['masks'][ch_tgt]   = d_tgt.footprint_masks[c]
-                adv_masks[t['id']] = d_tgt.footprint_masks[c]
-                t['gap_age'] = 0
-                matched_pred.add(r)
-                matched_det.add(c)
-                det_to_track[c] = t
-                _v_matched_b += 1
+            if -cost[r, c] < min_match_overlap:
+                continue
+            t = active[r]
+            if max_advect_px is not None:
+                # Distance the flow actually carried this footprint.
+                src_m = adv_masks[t['id']]
+                adv_m = adv_maps[t['id']] > 0.3
+                if src_m.any() and adv_m.any():
+                    sy, sx = np.argwhere(src_m).mean(axis=0)
+                    ay, ax = np.argwhere(adv_m).mean(axis=0)
+                    if np.hypot(ay - sy, ax - sx) > max_advect_px:
+                        continue
+            t['trajectory'].append(
+                (ch_tgt, float(d_tgt.peaks[c][0]), float(d_tgt.peaks[c][1]))
+            )
+            t['masks'][ch_tgt] = d_tgt.footprint_masks[c]
+            adv_masks[t['id']] = d_tgt.footprint_masks[c]
+            t['gap_age'] = 0
+            matched_pred.add(r)
+            matched_det.add(c)
+            det_to_track[c] = t
+            _v_matched_b += 1
 
         # C. Unmatched predictions: merge check + advected mask freeze + centroid extrapolation.
         for r, t in enumerate(active):
@@ -1050,7 +1366,7 @@ def classify_sources(
                         dpi=130, bbox_inches='tight')
             fig.savefig(f'{results_dir}/false_detection_separation.pdf',
                         dpi=130, bbox_inches='tight')
-        plt.show()
+        plt.close(fig)
 
     return good_sources, false_dets, src_data, src_colors
 
@@ -1065,15 +1381,14 @@ def run_flow_tracker(
     scales: int = 6,
     k_sigma: float = 5.0,
     use_scale: int = 5,
-    min_area: int = 20,
-    thresh: float | None = None,
+    min_area: int | None = None,
     use_mean_map_sigma: bool = True,
     min_match_overlap: int = 5,
     max_gap_channels: int = 5,
     min_displacement: float = 3.0,
     # Stage 5 — source classification
-    wav_scale_idx: int = 3,
-    wav_abrupt_thresh: float = 0.5,
+    wav_scale_idx: int | None = None,   # None → use_scale - 1
+    wav_abrupt_thresh: float = 0.4,
     flow_iou_thresh: float = 0.25,
     short_det_max: int = 8,
     vel_array: np.ndarray | None = None,
@@ -1135,7 +1450,7 @@ def run_flow_tracker(
         print(f"[run_flow_tracker]  cube={cube.shape}  channels={len(channel_list)}"
               f"  (ch {channel_list[0]}–{channel_list[-1]})")
         print(f"  wavelet: scales={scales}  k_sigma={k_sigma}  use_scale={use_scale}"
-              f"  min_area={min_area}  thresh={thresh}  mean_map_sigma={use_mean_map_sigma}")
+              f"  min_area={min_area}  mean_map_sigma={use_mean_map_sigma}")
         print(f"  tracker: min_match_overlap={min_match_overlap}"
               f"  max_gap_channels={max_gap_channels}"
               f"  min_displacement={min_displacement}\n")
@@ -1145,7 +1460,7 @@ def run_flow_tracker(
     detections = detect_cube_per_channel(
         cube, channel_list=channel_list,
         scales=scales, k_sigma=k_sigma,
-        use_scale=use_scale, min_area=min_area, thresh=thresh,
+        use_scale=use_scale, min_area=min_area,
         use_mean_map_sigma=use_mean_map_sigma,
     )
     if verbose:
@@ -1174,9 +1489,10 @@ def run_flow_tracker(
 
     if verbose:
         print("[Stage 5] Grouping into sources and removing false detections...")
+    _wav_idx = wav_scale_idx if wav_scale_idx is not None else use_scale - 1
     good_sources, false_dets, src_data, src_colors = classify_sources(
         sources, tracks, detections, flow_seq,
-        wav_scale_idx=wav_scale_idx,
+        wav_scale_idx=_wav_idx,
         wav_abrupt_thresh=wav_abrupt_thresh,
         flow_iou_thresh=flow_iou_thresh,
         short_det_max=short_det_max,
@@ -1207,6 +1523,12 @@ class TrackingResult:
     false_detections: list
     src_data: dict
     src_colors: dict
+    hierarchical_sources: list | None = None
+    tracks_per_scale: dict | None = None
+    sources_per_scale: dict | None = None
+    flow_seq_per_scale: dict | None = None
+    detections_per_scale: dict | None = None
+    multi_scale_dets: list | None = None
 
 
 class FlowTracker:
@@ -1254,7 +1576,7 @@ class FlowTracker:
         min_match_overlap: int = 5,
         max_gap_channels: int = 5,
         min_displacement: float = 3.0,
-        wav_scale_idx: int = 3,
+        wav_scale_idx: int | None = None,
         wav_abrupt_thresh: float = 0.5,
         flow_iou_thresh: float = 0.25,
         short_det_max: int = 8,
@@ -1315,14 +1637,27 @@ class FlowTracker:
                 "║ ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠘⠛⠋⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀ ║\n"
                 "╚══════════════════════════════╝\n"
             )
-        detections = self.detector.detect(cube, channel_list)
-        return self.run_from_detections(
-            detections,
-            vel_array=vel_array,
-            results_dir=results_dir,
-            plot=plot,
-            verbose=verbose,
-        )
+        detections = self.detector.detect(cube, channel_list, verbose=verbose)
+
+        # Check if multi-scale detection
+        if detections and hasattr(detections[0], 'scales'):
+            # Multi-scale detections (PerChannelScaleDetections)
+            return self.run_from_multi_scale_detections(
+                detections,
+                vel_array=vel_array,
+                results_dir=results_dir,
+                plot=plot,
+                verbose=verbose,
+            )
+        else:
+            # Single-scale detections (ChannelDetection)
+            return self.run_from_detections(
+                detections,
+                vel_array=vel_array,
+                results_dir=results_dir,
+                plot=plot,
+                verbose=verbose,
+            )
 
     def run_from_detections(
         self,
@@ -1358,9 +1693,11 @@ class FlowTracker:
         _reconcile_splits(tracks, bwd_tracks, verbose=verbose)
         classify_kinematic(tracks, min_displacement=self.min_displacement, verbose=verbose)
         all_sources = group_into_sources(tracks)
+        wav_scale_idx = (self.wav_scale_idx if self.wav_scale_idx is not None
+                         else self.detector.use_scale - 1)
         good_sources, false_dets, src_data, src_colors = classify_sources(
             all_sources, tracks, detections, flow_seq,
-            wav_scale_idx=self.wav_scale_idx,
+            wav_scale_idx=wav_scale_idx,
             wav_abrupt_thresh=self.wav_abrupt_thresh,
             flow_iou_thresh=self.flow_iou_thresh,
             short_det_max=self.short_det_max,
@@ -1377,6 +1714,200 @@ class FlowTracker:
             false_detections=false_dets,
             src_data=src_data,
             src_colors=src_colors,
+        )
+
+    @staticmethod
+    def _multi_scale_to_per_scale_dets(multi_scale_dets: list) -> dict:
+        """Convert list[PerChannelScaleDetections] → {scale: list[ChannelDetection]}."""
+        scales_present = set()
+        for multi_det in multi_scale_dets:
+            scales_present.update(multi_det.scales.keys())
+
+        detections_per_scale = {}
+        for scale in sorted(scales_present):
+            scale_dets = []
+            for multi_det in multi_scale_dets:
+                if scale in multi_det.scales:
+                    masks, peaks, boxes = multi_det.scales[scale]
+                    scale_dets.append(ChannelDetection(
+                        channel=multi_det.channel,
+                        image=multi_det.image,
+                        footprint_masks=masks,
+                        peaks=peaks,
+                        boxes=boxes,
+                        detect_coeffs=multi_det.detect_coeffs,
+                    ))
+            detections_per_scale[scale] = scale_dets
+        return detections_per_scale
+
+    def link_multi_scale(
+        self,
+        detections_per_scale: dict,
+        verbose: bool = False,
+    ) -> tuple[dict, dict]:
+        """Phase 1 — per-scale optical flow + track linking + kinematics.
+
+        Flow is computed exactly once per scale and reused for the forward
+        link, the backward link (split reconciliation), and returned for the
+        GUI.  Each scale's output is logged at the same level of detail as the
+        single-scale pipeline.
+
+        Returns
+        -------
+        (tracks_per_scale, flow_seq_per_scale)
+        """
+        tracks_per_scale = {}
+        flow_seq_per_scale = {}
+        scales_sorted = sorted(detections_per_scale.keys())
+
+        for scale in scales_sorted:
+            dets = detections_per_scale[scale]
+            n_det = sum(len(d.peaks) for d in dets)
+            if verbose:
+                print(f"\n{'='*52}")
+                print(f"  SCALE j={scale}   ({len(dets)} channels, {n_det} detections)")
+                print(f"{'='*52}")
+
+            flow_seq = compute_flow_sequence(dets, verbose=verbose)
+            flow_seq_per_scale[scale] = flow_seq
+
+            tracks = link_tracks(
+                dets, flow_seq,
+                min_match_overlap=self.min_match_overlap,
+                max_gap_channels=self.max_gap_channels,
+                verbose=verbose,
+            )
+            for t in tracks:
+                t['scale'] = scale
+
+            det_rev = list(reversed(dets))
+            flow_rev = [(b, a, -fl, mg) for (a, b, fl, mg) in reversed(flow_seq)]
+            bwd_tracks = link_tracks(
+                det_rev, flow_rev,
+                min_match_overlap=self.min_match_overlap,
+                max_gap_channels=self.max_gap_channels,
+            )
+            _reconcile_splits(tracks, bwd_tracks, verbose=verbose)
+            classify_kinematic(tracks, min_displacement=self.min_displacement, verbose=verbose)
+            tracks_per_scale[scale] = tracks
+
+        return tracks_per_scale, flow_seq_per_scale
+
+    def group_multi_scale(
+        self,
+        multi_scale_dets: list,
+        detections_per_scale: dict,
+        tracks_per_scale: dict,
+        flow_seq_per_scale: dict,
+        vel_array: np.ndarray | None = None,
+        results_dir=None,
+        plot: bool = False,
+        verbose: bool = False,
+    ) -> TrackingResult:
+        """Phase 2 — per-scale source grouping, hierarchy, false-det filtering."""
+        from .hierarchy import build_hierarchical_sources
+
+        # Per-scale source grouping with detailed logging
+        sources_per_scale = {}
+        for scale in sorted(tracks_per_scale.keys()):
+            tracks = tracks_per_scale[scale]
+            sources = group_into_sources(tracks)
+            sources_per_scale[scale] = sources
+            if verbose:
+                n_kin = sum(1 for t in tracks if t.get('kinematic'))
+                n_split = sum(1 for t in tracks if t.get('has_split'))
+                print(f"\n{'='*52}")
+                print(f"  SCALE j={scale}  source grouping")
+                print(f"{'='*52}")
+                print(f"  {len(tracks)} track(s)  ({n_kin} kinematic, "
+                      f"{n_split} with splits)  →  {len(sources)} source(s)")
+                for s in sources:
+                    chs = s['channels']
+                    print(f"    source {s['id']:>2}  "
+                          f"ch {chs[0]}–{chs[-1]} ({len(chs)} ch)  "
+                          f"{len(s['track_ids'])} track(s)")
+
+        # Build hierarchical relationships across scales
+        if verbose:
+            print(f"\n{'='*52}")
+            print(f"  HIERARCHY — linking sources across scales")
+            print(f"{'='*52}")
+        hierarchical_sources, old_to_hierarchy = build_hierarchical_sources(
+            multi_scale_dets, tracks_per_scale, sources_per_scale,
+            spatial_overlap_threshold=0.3,
+            velocity_tolerance=10.0,
+            vel_array=vel_array,
+            verbose=verbose,
+        )
+
+        # Flatten, remapping per-scale source IDs → globally unique h_ids so
+        # classify_sources never sees duplicate IDs from different scales.
+        all_tracks = []
+        for scale, scale_tracks in tracks_per_scale.items():
+            for t in scale_tracks:
+                old_sid = t.get('source_id')
+                if old_sid is not None:
+                    t['source_id'] = old_to_hierarchy.get((scale, old_sid), old_sid)
+            all_tracks.extend(scale_tracks)
+
+        all_sources = []
+        for scale, scale_sources in sources_per_scale.items():
+            for src in scale_sources:
+                new_id = old_to_hierarchy.get((scale, src['id']), src['id'])
+                all_sources.append(dict(src, id=new_id))
+
+        # False-detection filtering on the finest scale
+        first_scale = min(detections_per_scale.keys())
+        flow_seq = flow_seq_per_scale.get(first_scale) \
+            or compute_flow_sequence(detections_per_scale[first_scale], verbose=False)
+
+        wav_scale_idx = (self.wav_scale_idx if self.wav_scale_idx is not None
+                         else self.detector.use_scale - 1)
+        good_sources, false_dets, src_data, src_colors = classify_sources(
+            all_sources, all_tracks, detections_per_scale[first_scale], flow_seq,
+            wav_scale_idx=wav_scale_idx,
+            wav_abrupt_thresh=self.wav_abrupt_thresh,
+            flow_iou_thresh=self.flow_iou_thresh,
+            short_det_max=self.short_det_max,
+            verbose=verbose,
+            plot=plot,
+            vel_array=vel_array,
+            results_dir=results_dir,
+        )
+
+        return TrackingResult(
+            detections=detections_per_scale[first_scale],
+            flow_seq=flow_seq,
+            tracks=all_tracks,
+            sources=good_sources,
+            false_detections=false_dets,
+            src_data=src_data,
+            src_colors=src_colors,
+            hierarchical_sources=hierarchical_sources,
+            tracks_per_scale=tracks_per_scale,
+            sources_per_scale=sources_per_scale,
+            flow_seq_per_scale=flow_seq_per_scale,
+            detections_per_scale=detections_per_scale,
+            multi_scale_dets=multi_scale_dets,
+        )
+
+    def run_from_multi_scale_detections(
+        self,
+        multi_scale_dets: list,
+        vel_array: np.ndarray | None = None,
+        results_dir=None,
+        plot: bool = False,
+        verbose: bool = False,
+    ) -> TrackingResult:
+        """Run the full multi-scale pipeline (phase 1 + phase 2)."""
+        detections_per_scale = self._multi_scale_to_per_scale_dets(multi_scale_dets)
+        tracks_per_scale, flow_seq_per_scale = self.link_multi_scale(
+            detections_per_scale, verbose=verbose)
+        return self.group_multi_scale(
+            multi_scale_dets, detections_per_scale,
+            tracks_per_scale, flow_seq_per_scale,
+            vel_array=vel_array, results_dir=results_dir,
+            plot=plot, verbose=verbose,
         )
 
     def __repr__(self) -> str:
@@ -1406,7 +1937,6 @@ def main() -> None:
     ap.add_argument("--k-sigma",          type=float, default=5.0)
     ap.add_argument("--use-scale",        type=int,   default=5)
     ap.add_argument("--min-area",         type=int,   default=20)
-    ap.add_argument("--thresh",           type=float, default=None)
     ap.add_argument("--min-match-overlap", type=int,   default=5,
                     help="Min pixel overlap (advected mask ∩ component) to match a continuation")
     ap.add_argument("--min-displacement", type=float, default=3.0,
@@ -1430,7 +1960,7 @@ def main() -> None:
      good_sources, false_dets, src_data, src_colors) = run_flow_tracker(
         cube, channel_list=channel_list,
         scales=args.scales, k_sigma=args.k_sigma,
-        use_scale=args.use_scale, min_area=args.min_area, thresh=args.thresh,
+        use_scale=args.use_scale, min_area=args.min_area,
         min_match_overlap=args.min_match_overlap,
         min_displacement=args.min_displacement,
         verbose=True,

@@ -1,12 +1,22 @@
 import tkinter as tk
 from tkinter import messagebox
 
+from . import _constants as C
 from ._constants import ACCENT, BG, CARD_BG, DIM
-from .widgets import _FlatBtn
+from .widgets import _FlatBtn, make_slider_box
 
 
 class WaveletParamsDialog(tk.Toplevel):
-    """Modal dialog: edit and save WaveletDetector parameters."""
+    """Modal dialog: edit and save WaveletDetector parameters.
+
+    .. warning::
+
+       **Unused.**  "Configure Detection" opens :class:`~nemo.gui.viewers.
+       ScaleViewer` instead (via ``CubeCard._open_configure`` →
+       ``_view_choose_scales``).  This class is imported by ``card.py`` but
+       never instantiated, so edits here change nothing the user sees.  Edit
+       ``ScaleViewer`` instead, or delete this class.
+    """
 
     def __init__(self, master, on_save, current: dict | None = None):
         super().__init__(master)
@@ -17,7 +27,8 @@ class WaveletParamsDialog(tk.Toplevel):
         self._on_save = on_save
 
         defaults = dict(scales=6, k_sigma=5.0, use_scale=5,
-                        min_area=20, thresh="", use_mean_map_sigma=True)
+                        min_area="", use_mean_map_sigma=True,
+                        beam_fwhm_px="")
         if current:
             defaults.update({k: ("" if v is None else v) for k, v in current.items()})
 
@@ -30,9 +41,113 @@ class WaveletParamsDialog(tk.Toplevel):
             ("Scales (total starlet levels)",        "scales",             "int",   (2, 12)),
             ("k-sigma (detection threshold)",        "k_sigma",            "float", None),
             ("Use scale (1-based detail band)",      "use_scale",          "int",   (1, 11)),
-            ("Min area (px, discard smaller blobs)", "min_area",           "int",   (1, 500)),
-            ("Absolute threshold (blank = auto)",    "thresh",             "str",   None),
+            ("Min area (px, blank = one beam)",      "min_area",           "str",   None),
             ("Use mean-map sigma reference",         "use_mean_map_sigma", "bool",  None),
+            ("Beam FWHM (px, blank = auto/off)",     "beam_fwhm_px",       "str",   None),
+        ]
+        self._vars: dict[str, tk.Variable] = {}
+        for r, (label, key, typ, rng) in enumerate(fields, start=1):
+            if typ == "sep":
+                tk.Label(self, text=label.replace("__sep__", ""), bg=BG,
+                         fg=ACCENT, font=("Helvetica", 9, "bold"),
+                         anchor="w").grid(row=r, column=0, columnspan=2,
+                                          padx=14, pady=(10, 2), sticky="w")
+                continue
+            tk.Label(self, text=label, bg=BG, fg="white",
+                     font=("Helvetica", 9), anchor="w").grid(row=r, column=0, **pad)
+            if typ == "bool":
+                v = tk.BooleanVar(value=bool(defaults[key]))
+                tk.Checkbutton(self, variable=v, bg=BG, activebackground=BG,
+                               selectcolor=CARD_BG, fg=ACCENT,
+                               relief=tk.FLAT, bd=0).grid(
+                                   row=r, column=1, padx=14, pady=5, sticky="w")
+            elif typ == "int" and rng:
+                v = tk.IntVar(value=int(defaults[key]))
+                tk.Spinbox(self, from_=rng[0], to=rng[1], textvariable=v,
+                           width=6, bg=CARD_BG, fg="white",
+                           buttonbackground=CARD_BG,
+                           relief=tk.FLAT, insertbackground="white").grid(
+                               row=r, column=1, padx=14, pady=5, sticky="w")
+            else:
+                v = tk.StringVar(value=str(defaults[key]))
+                tk.Entry(self, textvariable=v, width=10, bg=CARD_BG, fg="white",
+                         insertbackground="white", relief=tk.FLAT).grid(
+                             row=r, column=1, padx=14, pady=5, sticky="w")
+            self._vars[key] = v
+
+        btn_row = tk.Frame(self, bg=BG)
+        btn_row.grid(row=len(fields)+1, column=0, columnspan=2, pady=(12, 14))
+        _FlatBtn(btn_row, "Cancel", self.destroy, bg_on=DIM,    active=True).pack(side=tk.LEFT, padx=6)
+        _FlatBtn(btn_row, "Save",   self._save,   bg_on=ACCENT, active=True).pack(side=tk.LEFT, padx=6)
+
+        self.transient(master)
+        self.wait_visibility()
+        self.update_idletasks()
+        px = master.winfo_rootx() + (master.winfo_width()  - self.winfo_width())  // 2
+        py = master.winfo_rooty() + (master.winfo_height() - self.winfo_height()) // 2
+        self.geometry(f"+{px}+{py}")
+
+    def _save(self):
+        def _f(k): return self._vars[k].get()
+
+        def _opt(k, cast):
+            """Blank entry -> None, so 'off'/'auto' is expressible in the UI."""
+            s = str(_f(k)).strip()
+            return cast(s) if s else None
+
+        try:
+            params = dict(
+                scales=int(_f("scales")), k_sigma=float(_f("k_sigma")),
+                use_scale=int(_f("use_scale")),
+                min_area=_opt("min_area", int),
+                use_mean_map_sigma=bool(_f("use_mean_map_sigma")),
+                beam_fwhm_px=_opt("beam_fwhm_px", float),
+            )
+        except ValueError as exc:
+            messagebox.showerror("Bad parameter", str(exc), parent=self)
+            return
+
+        if params["min_area"] is None and params["beam_fwhm_px"] is None:
+            messagebox.showwarning(
+                "Min area",
+                "Min area is blank but no beam FWHM is set, so it falls back "
+                "to 10 px rather than one beam.",
+                parent=self)
+
+        self._on_save(params)
+        self.destroy()
+
+
+class FlowParamsDialog(tk.Toplevel):
+    """Modal dialog: edit and save FlowTracker parameters.
+
+    .. warning::
+
+       **Unused.**  The flow card renders its parameters as inline sliders
+       (``CubeCard._build_flow_controls``), not through this dialog, and
+       nothing imports this class.  Edits here change nothing the user sees.
+    """
+
+    def __init__(self, master, on_save, current: dict | None = None):
+        super().__init__(master)
+        self.title("Flow Tracking — Parameters")
+        self.configure(bg=BG)
+        self.resizable(False, False)
+        self.grab_set()
+        self._on_save = on_save
+
+        defaults = dict(min_match_overlap=5, max_gap_channels=5)
+        if current:
+            defaults.update(current)
+
+        pad = dict(padx=14, pady=5, sticky="w")
+        tk.Label(self, text="TV-L1 Flow Tracker", bg=BG, fg=ACCENT,
+                 font=("Helvetica", 12, "bold")).grid(
+                     row=0, column=0, columnspan=2, pady=(14, 8), padx=14)
+
+        fields = [
+            ("Min match overlap (px)",   "min_match_overlap", "int", (1, 100)),
+            ("Max gap channels",         "max_gap_channels",  "int", (1, 50)),
         ]
         self._vars: dict[str, tk.Variable] = {}
         for r, (label, key, typ, rng) in enumerate(fields, start=1):
@@ -72,13 +187,10 @@ class WaveletParamsDialog(tk.Toplevel):
 
     def _save(self):
         def _f(k): return self._vars[k].get()
-        thresh_s = str(_f("thresh")).strip()
         try:
             params = dict(
-                scales=int(_f("scales")), k_sigma=float(_f("k_sigma")),
-                use_scale=int(_f("use_scale")), min_area=int(_f("min_area")),
-                thresh=float(thresh_s) if thresh_s else None,
-                use_mean_map_sigma=bool(_f("use_mean_map_sigma")),
+                min_match_overlap=int(_f("min_match_overlap")),
+                max_gap_channels=int(_f("max_gap_channels")),
             )
         except ValueError as exc:
             messagebox.showerror("Bad parameter", str(exc), parent=self)
@@ -87,52 +199,71 @@ class WaveletParamsDialog(tk.Toplevel):
         self.destroy()
 
 
-class FlowParamsDialog(tk.Toplevel):
-    """Modal dialog: edit and save FlowTracker parameters."""
+class FalseDetParamsDialog(tk.Toplevel):
+    """Modal dialog: edit false-detection rejection thresholds with sliders."""
 
     def __init__(self, master, on_save, current: dict | None = None):
         super().__init__(master)
-        self.title("Flow Tracking — Parameters")
-        self.configure(bg=BG)
+        # Read colours dynamically so the dialog matches the active theme.
+        bg, accent, card_bg, dim = C.BG, C.ACCENT, C.CARD_BG, C.DIM
+        txt = C.STEP_LABEL_TXT
+        self.title("False Detection — Parameters")
+        self.configure(bg=bg)
         self.resizable(False, False)
         self.grab_set()
         self._on_save = on_save
 
-        defaults = dict(min_match_overlap=5, max_gap_channels=5)
+        defaults = dict(wav_abrupt_thresh=0.5, flow_iou_thresh=0.25, short_det_max=8)
         if current:
-            defaults.update(current)
+            for k in defaults:
+                if k in current:
+                    defaults[k] = current[k]
 
-        pad = dict(padx=14, pady=5, sticky="w")
-        tk.Label(self, text="TV-L1 Flow Tracker", bg=BG, fg=ACCENT,
-                 font=("Helvetica", 12, "bold")).grid(
-                     row=0, column=0, columnspan=2, pady=(14, 8), padx=14)
+        tk.Label(self, text="False Detection Rejection", bg=bg, fg=accent,
+                 font=("Helvetica", 12, "bold")).pack(padx=18, pady=(16, 4),
+                                                      anchor="w")
+        tk.Label(self,
+                 text="A source is flagged as a likely false detection when its wavelet\n"
+                      "flux profile is too abrupt, OR its optical-flow overlap is poor\n"
+                      "while it spans only a few channels. These thresholds control how\n"
+                      "lenient that test is.",
+                 bg=bg, fg=txt, font=("Helvetica", 9),
+                 justify="left").pack(padx=18, pady=(0, 12), anchor="w")
 
-        fields = [
-            ("Min match overlap (px)",   "min_match_overlap", "int", (1, 100)),
-            ("Max gap channels",         "max_gap_channels",  "int", (1, 50)),
+        # (key, title, description, lo, hi, resolution, kind)
+        specs = [
+            ("wav_abrupt_thresh", "Wavelet abruptness threshold",
+             "Largest allowed jump in a source's wavelet flux between adjacent\n"
+             "channels. Sources that switch on/off more abruptly than this are\n"
+             "rejected. Higher = more lenient (keeps more sources).",
+             0.0, 1.5, 0.05, "float"),
+            ("flow_iou_thresh", "Flow IoU threshold",
+             "Minimum overlap (intersection-over-union) between the optical-flow-\n"
+             "predicted mask and the actually detected mask. Short sources below\n"
+             "this overlap are treated as untracked. Lower = more lenient.",
+             0.0, 1.0, 0.05, "float"),
+            ("short_det_max", "Short-detection length (channels)",
+             "Sources spanning fewer channels than this must also pass the flow-\n"
+             "overlap test above; longer sources are always kept. Lower = more\n"
+             "lenient (fewer sources scrutinised).",
+             1, 30, 1, "int"),
         ]
-        self._vars: dict[str, tk.Variable] = {}
-        for r, (label, key, typ, rng) in enumerate(fields, start=1):
-            tk.Label(self, text=label, bg=BG, fg="white",
-                     font=("Helvetica", 9), anchor="w").grid(row=r, column=0, **pad)
-            if typ == "int" and rng:
-                v = tk.IntVar(value=int(defaults[key]))
-                tk.Spinbox(self, from_=rng[0], to=rng[1], textvariable=v,
-                           width=6, bg=CARD_BG, fg="white",
-                           buttonbackground=CARD_BG,
-                           relief=tk.FLAT, insertbackground="white").grid(
-                               row=r, column=1, padx=14, pady=5, sticky="w")
-            else:
-                v = tk.StringVar(value=str(defaults[key]))
-                tk.Entry(self, textvariable=v, width=10, bg=CARD_BG, fg="white",
-                         insertbackground="white", relief=tk.FLAT).grid(
-                             row=r, column=1, padx=14, pady=5, sticky="w")
-            self._vars[key] = v
+        self._sliders: dict[str, tuple] = {}
+        for key, name, desc, lo, hi, res, kind in specs:
+            fr = tk.Frame(self, bg=bg)
+            fr.pack(fill=tk.X, padx=18, pady=(0, 12))
+            tk.Label(fr, text=name, bg=bg, fg=accent,
+                     font=("Helvetica", 10, "bold"), anchor="w").pack(fill=tk.X)
+            tk.Label(fr, text=desc, bg=bg, fg=txt, font=("Helvetica", 8),
+                     justify="left", anchor="w").pack(fill=tk.X)
+            parts = make_slider_box(fr, lo, hi, res, kind, defaults[key], height=26)
+            parts["outer"].pack(fill=tk.X, pady=(4, 0))
+            self._sliders[key] = (parts, kind)
 
-        btn_row = tk.Frame(self, bg=BG)
-        btn_row.grid(row=len(fields)+1, column=0, columnspan=2, pady=(12, 14))
-        _FlatBtn(btn_row, "Cancel", self.destroy, bg_on=DIM,    active=True).pack(side=tk.LEFT, padx=6)
-        _FlatBtn(btn_row, "Save",   self._save,   bg_on=ACCENT, active=True).pack(side=tk.LEFT, padx=6)
+        btn_row = tk.Frame(self, bg=bg)
+        btn_row.pack(pady=(6, 16))
+        _FlatBtn(btn_row, "Cancel", self.destroy, bg_on=dim,    active=True).pack(side=tk.LEFT, padx=6)
+        _FlatBtn(btn_row, "Save",   self._save,   bg_on=accent, active=True).pack(side=tk.LEFT, padx=6)
 
         self.transient(master)
         self.wait_visibility()
@@ -142,15 +273,9 @@ class FlowParamsDialog(tk.Toplevel):
         self.geometry(f"+{px}+{py}")
 
     def _save(self):
-        def _f(k): return self._vars[k].get()
-        try:
-            params = dict(
-                min_match_overlap=int(_f("min_match_overlap")),
-                max_gap_channels=int(_f("max_gap_channels")),
-            )
-        except ValueError as exc:
-            messagebox.showerror("Bad parameter", str(exc), parent=self)
-            return
+        params = {key: (int(round(parts["get"]())) if kind == "int"
+                        else float(parts["get"]()))
+                  for key, (parts, kind) in self._sliders.items()}
         self._on_save(params)
         self.destroy()
 

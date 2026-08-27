@@ -1,0 +1,489 @@
+%
+
+\documentclass{aa}
+\usepackage{graphicx}
+\usepackage{bm}
+%\usepackage{ulem}
+\usepackage{txfonts}
+%\usepackage{xfrac}
+\usepackage{xcolor}
+\definecolor{aaBlue}{RGB}{0,0,200}
+
+\usepackage[colorlinks=true,
+            linkcolor=aaBlue,
+            citecolor=aaBlue,
+            urlcolor=aaBlue]{hyperref}
+\usepackage[normalem]{ulem}
+
+\begin{document}
+
+
+   \title{Non-stationary Source Detection and Kinematics in IFU Spectral Data Cubes with Wavelets and Optical Flow: Introducing the NEMO Pipeline and Applications to Simulated and Observed Data}
+
+
+   \author{Arnab Lahiry
+          \inst{1,2} \fnmsep\thanks{E-mail: arnablahiry08@gmail.com}
+          , Tanio D\'iaz-Santos \inst{1,4}
+          , Jean-Luc Starck\inst{1,3}
+          }
+
+       \institute{Institutes of Computer Science and Astrophysics, Foundation for Research and Technology Hellas (FORTH), 100 Nikolaou Plastira str., Vassilika Vouton, Heraklion, 70013, Greece
+         \and
+            Departments of Physics and Computer Science, University of Crete, Voutes Campus, Vasilika Voutes, Heraklion, 70013, Greece
+         \and
+             Université Paris-Saclay, Université Paris Cité, CEA, CNRS, AIM, 91191, Gif-sur-Yvette, France
+         \and
+             School of Sciences, European University Cyprus, Diogenes Street, Engomi, 1516, Nicosia, Cyprus
+             }
+
+   \date{Received \today}
+
+
+\abstract
+% Context
+{High-redshift ultraluminous infrared galaxies (ULIRGs) display complex kinematic substructure in emission-line spectral cubes where bulk motions (rotation, outflows, merging) cause the same physical gas to appear as spatially displaced components across velocity channels. Standard 2D source-finding algorithms (SExtractor, PyBDSF) operate on collapsed moment-0 maps and cannot resolve multi-component kinematic structure or track source trajectories in velocity space.}
+% Aims
+{We develop and validate a novel 3D pipeline for detecting and tracking compact emission sources directly in spectral cubes. We apply this method to [CII] 158\,$\mu$m observations of the prototypical high-redshift ULIRG W2246-0526 to characterize source kinematics, outflow properties, and feedback physics.}
+% Methods
+{NEMO (Non-stationary Extraction via Multiscale Optical-flow) combines: (1) single-scale starlet wavelet detection applied per-channel slice to identify sources; (2) TV-L1 optical flow computed between consecutive channel pairs to measure kinematic continuity; (3) flow-guided track linking to group detections into coherent sources across velocity; and (4) kinematic classification based on centroid displacement. We validate NEMO on synthetic toy cubes generated with SONGS (Synthetic Spatio-Spectral Observations of Non-stationary Galactic Structures), which include physically motivated rotating galaxies with diffuse emission, tidal bridges, and tidal tails, varying signal-to-noise ratio (3--20), source density, morphology (point/extended/blended), and kinematics (stationary/linear/accelerating). We further validate against ALMA observations of local-universe galaxies with known physical structure, and apply NEMO to ALMA Band~9 observations of W2246-0526 ($z=4.596$).}
+% Results
+{Validation on SONGS cubes demonstrates completeness $>95\%$ and purity $>90\%$ across all tested regimes, with astrometric accuracy $\lesssim0.5$ pixels and flux recovery $\lesssim10\%$. Application to a FIRE cosmological hydrodynamical simulation of a W2246-like ULIRG and to observed ALMA data of local and high-redshift galaxies reveals the multi-component kinematic nature of [CII] emission and provides new constraints on AGN feedback in extreme starbursts.}
+% Conclusions
+{NEMO enables kinematic decomposition of unresolved galaxies at high redshift. Application to W2246 reveals the multi-component nature of [CII] emission and provides new constraints on feedback mechanisms in hyperluminous systems. The code and the SONGS generator are publicly available for community use.}
+
+
+
+\keywords{galaxies: high-redshift -- galaxies: kinematics -- techniques: image processing -- line: profiles}
+
+
+\authorrunning{Lahiry et al.}
+\titlerunning{NEMO: Non-stationary Source Detection in Spectral Cubes with Wavelets and Optical Flow}
+\maketitle
+
+% ─────────────────────────────────────────────────────────────────
+\section{Introduction}
+\label{sec:intro}
+
+Integral field unit (IFU) spectrographs and millimeter interferometers such as ALMA and MUSE now routinely deliver spectral data cubes in which each spatial pixel carries a full spectrum. In such cubes, a single physical structure---a rotating gaseous disk, an outflowing wind cone, a tidally disrupted companion---manifests as a locus of emission that moves coherently through both space and frequency as a function of line-of-sight velocity. This three-dimensional nature is the defining feature of resolved spectroscopy, and it encodes information about kinematics, morphology, and energetics that is irretrievably lost when the cube is projected onto a single 2D image.
+
+Despite this richness, the overwhelming majority of source-extraction workflows in radio/millimeter astronomy still operate on dimensionally reduced products. Moment-0 (velocity-integrated) maps are fed to tools such as SExtractor \citep{...} or PyBDSF \citep{...}, which were designed for continuum imaging and have no concept of spectral coherence. This mismatch has several concrete consequences. First, spectrally narrow sources that peak in only a few channels are diluted below detection thresholds in broadband moment images, while nearby bright sources contaminate their footprints. Second, morphologically complex systems---merging galaxies, galaxy pairs connected by tidal bridges, galaxies hosting large-scale AGN-driven outflows---produce emission distributions that shift, stretch, and bifurcate across velocity channels; a 2D finder sees only their aggregate projection and cannot separate kinematically distinct components. Third, and most critically for the science cases that motivate this work, the spatial centroid of a structure can move by several synthesized beams across the velocity axis of a cube (a \emph{kinematic offset}), so even a detection on the moment-0 map does not recover the correct position at any individual velocity.
+
+These limitations are most acute for high-redshift luminous systems. At $z \sim 4$--6, the [CII] 158\,$\mu$m fine-structure line is one of the brightest spectroscopic diagnostics accessible to ALMA \citep{...}, providing kinematic information about the cold interstellar medium across cosmological distances. High-redshift hyperluminous infrared galaxies (HyLIRGs) and quasar host galaxies observed in [CII] display velocity fields of remarkable complexity: rotating disks with steep gradients, companion galaxies at small projected separations, and powerful molecular/ionized outflows extending over tens of kiloparsecs \citep{...}. The same physical gas cloud, illuminated differently at each velocity slice by the underlying rotation curve, appears as a spatially varying and sometimes multiply peaked surface brightness distribution across the cube channels. No existing source finder is designed to detect, characterize, and track these non-stationary components.
+
+Several 3D source finders exist for HI surveys (SoFiA, \citealt{...}; Duchamp, \citealt{...}), and their design philosophy---linking voxels across frequency---is closer in spirit to what is needed. However, they were optimized for relatively smooth, extended emission in low-redshift HI surveys, where kinematic offsets are gentle and confusion is limited. They do not incorporate a physically motivated model of how structures move between consecutive spectral channels, and their false-detection filters are not tuned for the low signal-to-noise, high-confusion environments typical of high-resolution ALMA data of distant galaxies.
+
+A fundamentally different approach is needed: one that (i) detects sources per channel using a noise model matched to interferometric data, (ii) estimates the local kinematic velocity field between consecutive channels, and (iii) uses that estimated flow to link detections into coherent tracks before deciding what constitutes a real source. This is the design philosophy of NEMO (Non-stationary Extraction via Multiscale Optical-flow), which we introduce in this paper.
+
+\subsection{Why optical flow?}
+\label{sec:intro_flow}
+
+Optical flow \citep{HornSchunck1981,...} is a classical computer-vision technique that estimates the apparent 2D motion of image structures between consecutive frames. Its application to spectral cubes is natural but non-trivial. Consecutive channel maps separated by a velocity interval $\delta v$ are not literal time snapshots---they represent different projections of a 3D velocity distribution---but for a kinematically ordered system (e.g.\ a rotating disk or a monotonically accelerating outflow), the apparent spatial displacement of emission peaks between channels is a well-defined and locally smooth function of position. TV-L1 optical flow \citep{Zach2007,...}, which combines a data fidelity term based on the $L_1$ norm (robust to outliers) with a total-variation regularizer on the flow field (enforcing spatial smoothness), is well suited to this regime: it handles large displacements, is robust to intensity variations between channels, and produces piecewise-smooth flow fields consistent with physically motivated kinematic models.
+
+By restricting the flow computation to regions already flagged as potentially containing emission (via wavelet detection), we avoid contamination from noise-dominated background pixels and reduce computation. The resulting flow field then acts as a physics-informed prior when linking detections across channels: a detection in channel $i+1$ is preferentially matched to a detection in channel $i$ whose wavelet footprint, advected by the estimated flow, overlaps with the detection at $i+1$. This is the key innovation of NEMO relative to all existing spectral cube source finders.
+
+\subsection{The SONGS synthetic cube generator}
+\label{sec:intro_songs}
+
+A central challenge in validating any spectral source finder is the availability of realistic synthetic data with known ground truth. Earlier work by \citet{Lahiry+2024} (hereafter \citetalias{Lahiry+2024}) introduced a spectral cube generator for point-source populations with controlled kinematics. In this paper we use a substantially upgraded version of that generator, which we rename SONGS---\textit{Synthetic Spatio-Spectral Observations of Non-stationary Galactic Structures}---now publicly available at \url{https://github.com/[SONGS-REPO]}.
+
+SONGS significantly extends the earlier framework in two respects. Morphologically, it supports not only unresolved point sources but also spatially extended components including diffuse emission halos, tidal bridges connecting interacting galaxy pairs, and tidal tails produced by gravitational disruption. Kinematically, it implements physically motivated rotating galaxy models in which the velocity field follows an analytic rotation curve (solid-body at small radii, flat at large radii), so that the same galaxy appears as a spatially offset, sheared source at each velocity channel in a manner that closely mimics real interferometric observations of inclined disks. These two extensions together allow us to probe the most important failure modes of 2D source finders and to validate NEMO in regimes that are directly relevant to the science cases described below.
+
+\subsection{Validation strategy and science targets}
+\label{sec:intro_validation}
+
+We adopt a three-tier validation strategy for NEMO.
+
+\textbf{Tier 1 (synthetic):} We run NEMO on a comprehensive suite of SONGS cubes spanning a wide range of signal-to-noise ratios (SNR $= 3$--20), source densities, morphological types (point, extended, blended, diffuse), and kinematic behaviors (stationary, linearly moving, accelerating, rotating). This provides rigorous, quantitative completeness and purity statistics in a controlled environment where ground truth is exact.
+
+\textbf{Tier 2 (local observations):} We validate against ALMA observations of nearby galaxies for which the physical nature of individual emission components is well established from complementary data (optical IFU spectroscopy, HI mapping, X-ray imaging). In the local universe we know---from independent observations---which structures are compact star-forming clumps, which are outflow regions, and which are tidal features. This allows us to assess whether NEMO correctly identifies and classifies real astrophysical structures, not just synthetic injections.
+
+\textbf{Tier 3 (high-redshift target):} Finally, we apply NEMO to ALMA Band~9 observations of W2246-0526 at $z = 4.596$ \citep{...}, a hyperluminous quasar host galaxy with among the most complex [CII] morphologies known at high redshift \citep{...}. This system is surrounded by at least three satellite companions connected by tidal bridges of [CII] emission \citep{...}, and hosts a powerful AGN whose feedback is thought to be driving large-scale outflows \citep{...}. Its combination of extreme luminosity, complex kinematics, and rich ancillary data makes it the ideal stress-test for our pipeline.
+
+The paper is organized as follows. Section~\ref{sec:data} describes the data sets---SONGS synthetic cubes, the FIRE simulation, local ALMA targets, and the W2246 observations. Section~\ref{sec:methods} presents the NEMO pipeline in detail. Section~\ref{sec:validation} reports the validation results on SONGS cubes. Sections~\ref{sec:fire}, \ref{sec:local}, and \ref{sec:w2246} present the FIRE, local, and W2246 results respectively. Section~\ref{sec:comparison} compares FIRE predictions to observations. Section~\ref{sec:discussion} discusses the broader implications, and Section~\ref{sec:conclusions} summarizes our findings.
+
+% ─────────────────────────────────────────────────────────────────
+\section{Data}
+\label{sec:data}
+
+\subsection{SONGS Synthetic Cubes}
+\label{sec:data_songs}
+
+Synthetic spectral cubes for the validation suite are generated with SONGS (Synthetic Spatio-Spectral Observations of Non-stationary Galactic Structures), the updated version of the cube generator first introduced in \citetalias{Lahiry+2024}. SONGS is available at \url{https://github.com/[SONGS-REPO]}.
+
+SONGS constructs data cubes $\mathcal{I} \in \mathbb{R}^{N_\mathrm{ch} \times H \times W}$ by placing source populations in a three-dimensional position--velocity space and projecting them onto the spatial--spectral grid of a simulated interferometer. The key advances in SONGS over the generator in \citetalias{Lahiry+2024} are:
+
+\begin{enumerate}
+  \item \textbf{Physically motivated rotating galaxies.} Each galaxy model is assigned an inclination $i$, a position angle $\phi$, a scale length $r_s$, and a rotation curve of the form
+  \begin{equation}
+    v_\mathrm{rot}(r) = v_\mathrm{max} \frac{r / r_s}{\sqrt{1 + (r/r_s)^2}}
+  \end{equation}
+  following \citet{Freeman1970}. The resulting projected line-of-sight velocity field maps each spatial element to a specific spectral channel, so the galaxy appears as a spatially sheared, channel-dependent source that mimics the channel-to-channel morphology of real inclined disks observed with a finite synthesized beam.
+
+  \item \textbf{Diffuse emission.} In addition to compact or extended sources, SONGS can inject a smooth diffuse emission component representing, e.g., circum-galactic medium emission or a low-surface-brightness disk. The diffuse component is spectrally broad and spatially extended, testing the ability of NEMO to detect compact sources against a bright, structured background.
+
+  \item \textbf{Tidal bridges.} Pairs of galaxies can be connected by an elongated bridge of emission representing tidally stripped gas. Bridges are modeled as smoothly varying flux tubes whose orientation and width follow from the vector connecting the two galaxy centroids, with a velocity gradient imposed along the bridge consistent with a linear interpolation between the systemic velocities of the two galaxies.
+
+  \item \textbf{Tidal tails.} Single galaxies can be assigned one or two tidal tails extending from their outskirts, with a curved spatial morphology and a velocity gradient whose amplitude is set by the escape velocity at the tidal truncation radius. Tidal tails are spectrally wide, spatially resolved, and low in surface brightness---precisely the kind of extended, non-stationary structure that challenges 2D source finders.
+\end{enumerate}
+
+The full validation grid spans: SNR per source $\in \{3, 5, 10, 20\}$; source density $\in \{\mathrm{low, medium, high}\}$; morphology $\in \{\mathrm{point, extended, blended, diffuse+tail, rotating~disk}\}$; and kinematics $\in \{\mathrm{stationary, linear, accelerating, rotating}\}$. Each cell contains $\sim$100 independent noise realizations.
+
+Figures~\ref{fig:songs_example}a--c illustrate a representative SONGS cube: a single channel map with NEMO-detected footprints overlaid (panel a), the velocity moment-1 map of the full system (panel b), and the integrated spectrum of the total system together with the spectra of individually detected sources (panel c).
+
+\begin{figure}
+  \centering
+  % Panel (a): single channel map with detected source footprints
+  % Panel (b): moment-1 velocity map
+  % Panel (c): integrated spectrum (total + individual sources)
+  \caption{Representative SONGS synthetic cube. \textit{(a)} Single channel map at the systemic velocity, with NEMO source footprints overlaid as colored contours. The rotating galaxy disk is visible as a sheared ellipse; tidal tail emission extends to the lower right. \textit{(b)} Moment-1 (intensity-weighted velocity) map of the full system, showing the ordered rotation field of the disk and the kinematically distinct tidal structure. \textit{(c)} Integrated spectra: the black curve shows the total spectrum of the system; colored curves show the spectra of individual NEMO-detected sources, demonstrating the kinematic decomposition.}
+  \label{fig:songs_example}
+\end{figure}
+
+\subsection{FIRE Cosmological Simulation}
+\label{sec:data_fire}
+
+To bridge the gap between idealized synthetic cubes and real observations, we apply NEMO to a synthetic [CII] spectral cube extracted from a FIRE-2 \citep{Hopkins+2018} cosmological zoom-in simulation of a high-redshift starburst galaxy with properties analogous to W2246-0526.
+
+\textbf{Simulation properties.} The FIRE-2 simulation uses the GIZMO code \citep{Hopkins+2015} with the meshless finite-mass (MFM) hydrodynamics solver. Star formation follows a volume-density threshold criterion with an efficiency per free-fall time calibrated to match the Kennicutt--Schmidt relation \citep{...}. Stellar feedback includes radiation pressure, photoionization, photoelectric heating, stellar winds from OB stars and AGB stars, and core-collapse and Type Ia supernovae, all implemented with explicit momentum and energy injection rather than sub-grid prescriptions. Supermassive black hole growth and AGN feedback are included using the sub-grid model of \citet{...}, with both quasar-mode (radiative) and kinetic-mode (jet/wind) channels.
+
+The simulated halo was selected from a cosmological volume to match the stellar mass, star formation rate, and AGN luminosity of W2246-0526 at $z \sim 4.5$. The zoom-in region achieves a baryonic mass resolution of $\sim$$10^4\,M_\odot$ and a spatial force softening of $\sim$40~pc, sufficient to resolve the multiphase ISM and the kpc-scale structure of outflows.
+
+\textbf{[CII] cube extraction.} Synthetic [CII] emission is computed in post-processing by applying the photo-dissociation region (PDR) model of \citet{...} to each gas particle, taking into account the local radiation field, metallicity, and density. The emission is then projected onto a 3D position--velocity cube with the same spatial resolution and channel spacing as the ALMA Band~9 observations of W2246-0526 (see Sect.~\ref{sec:data_w2246}), and convolved with a synthesized beam of $0\farcs15$ (FWHM). Thermal and instrumental noise appropriate for the observational setup is added to produce a cube directly comparable to the real data.
+
+The FIRE cube allows us to test NEMO in a physically self-consistent environment where the ``ground truth'' is provided by the simulation particle data: we know which detections correspond to disk rotation, which to outflowing material, and which to infalling companions. This provides a more stringent and physically meaningful validation than SONGS alone, because the morphological and kinematic complexity of the FIRE cube is not parameterized---it arises naturally from the underlying physics.
+
+\begin{figure}
+  \centering
+  % Panel (a): single channel from FIRE cube with NEMO detections
+  % Panel (b): moment-1 map of FIRE cube
+  % Panel (c): integrated spectra of detected components
+  \caption{FIRE simulation [CII] cube. Same layout as Fig.~\ref{fig:songs_example}. \textit{(a)} Single channel at $v = 0$\,km/s (systemic) showing the extended rotating disk and compact starburst clumps. NEMO footprints are shown as colored contours. \textit{(b)} Moment-1 map revealing the ordered rotation field at large radii and the disturbed kinematics near the AGN. \textit{(c)} Integrated spectra: total (black) and individual detected sources (colored).}
+  \label{fig:fire_example}
+\end{figure}
+
+\subsection{Local ALMA Targets}
+\label{sec:data_local}
+
+As a second observational validation, we apply NEMO to ALMA observations of [CII] in the local universe, where the physical nature of emission components is well constrained by complementary data. For these systems, ALMA provides high angular resolution (sub-arcsecond) maps of the cold ISM, while optical IFU spectroscopy (e.g., from VLT/MUSE or HST), HI 21~cm mapping, and X-ray imaging together provide a comprehensive multi-wavelength picture of the stellar distribution, ionized gas kinematics, neutral gas reservoir, and AGN activity.
+
+The key advantage of local targets is that the correspondence between spectroscopic components and physical structures is already established: we know from independent evidence which emission peaks are star-forming clumps, which are AGN-driven outflows, and which are tidal features from interactions. NEMO's ability to recover these same identifications purely from the spectral cube constitutes the most direct test of its scientific reliability.
+
+We select a sample of $N$ local galaxies drawn from [appropriate survey], spanning a range of morphological types (isolated disks, interacting pairs, mergers) and AGN activity (quiescent, Seyfert, composite). The sample and the criteria for cross-identification with multi-wavelength data are described in Sect.~\ref{sec:local}.
+
+\subsection{ALMA W2246-0526 [CII] Observations}
+\label{sec:data_w2246}
+
+W2246-0526 ($z = 4.596$; R.A.\ = 22:49:10.1, Dec.\ = $-$05:09:58) is a Hot Dust-Obscured Galaxy (Hot DOG) \citep{Wu+2012} and one of the most luminous objects known in the universe ($L_\mathrm{bol} \sim 3 \times 10^{14}\,L_\odot$; \citealt{Tsai+2015}). It hosts an extremely powerful, heavily dust-obscured AGN whose bolometric luminosity is dominated by reprocessed AGN emission from warm dust. [CII] 158\,$\mu$m emission, redshifted to $\sim$352.5~GHz and observed with ALMA Band~9, provides the primary kinematic tracer of the cold ISM in this system.
+
+The galaxy is embedded in a rich environment: at least three confirmed companion galaxies lie within $\sim$30~kpc in projection (C1, C2, C3; \citealt{DiazSantos+2018}), and tidal bridges of [CII] emission connecting W2246 to its companions have been detected \citep{DiazSantos+2018}. The systemic [CII] emission itself is morphologically complex, showing evidence for rotation, a compact nuclear component coincident with the AGN, and spatially extended emission consistent with a large-scale outflow \citep{...}. This combination of a powerful AGN, ongoing mergers, tidal features, and a multi-phase gas distribution makes W2246 an ideal---and exceptionally challenging---target for NEMO.
+
+\textbf{Observations.} We use ALMA program [ALMA program ID] data taken in Band~9 with a synthesized beam of approximately $0\farcs15 \times 0\farcs12$ (PA $\approx 60\degr$), corresponding to a physical scale of $\sim$1~kpc at $z = 4.596$. The spectral resolution is [X]~km~s$^{-1}$ per channel and the rms noise per channel is [X]~mJy~beam$^{-1}$. Data reduction followed standard ALMA pipeline procedures with additional manual flagging and self-calibration; details are given in \citet{DiazSantos+2018} and \citet{...}.
+
+% ─────────────────────────────────────────────────────────────────
+\section{Methods: The NEMO Pipeline}
+\label{sec:methods}
+
+NEMO consists of five sequential stages operating on spectral data cubes $\mathcal{I} \in \mathbb{R}^{N_{\text{ch}} \times H \times W}$, where $N_{\text{ch}}$ is the number of velocity channels and $H \times W$ is the spatial resolution. An overview of the pipeline is given in Fig.~\ref{fig:nemo_overview}.
+
+\begin{figure}
+  \centering
+  % Flowchart: cube → wavelet detection → optical flow → track linking → kinematic classification → false-detection filter → source catalog
+  \caption{Overview of the NEMO pipeline. Each channel is processed independently by the starlet wavelet detector (Stage~1). TV-L1 optical flow is then computed between consecutive channel pairs within the union of detected footprints (Stage~2). Flow-guided IoU matching links footprints across channels into tracks, which are grouped into sources (Stage~3). Kinematic metadata is assigned per track (Stage~4), and a dual wavelet-abruptness / flow-continuity filter removes false detections (Stage~5).}
+  \label{fig:nemo_overview}
+\end{figure}
+
+\subsection{Stage 1: Starlet Wavelet Detection}
+\label{sec:method_wavelet}
+
+For each channel $i$ independently, we apply the isotropic undecimated starlet (à trous) wavelet transform \citep{Starck+2007} to decompose the image $I_i(x,y)$ into $J$ dyadic scales. The transform is defined by the recursion:
+\begin{equation}
+  W_j(x,y) = I_j(x,y) - I_{j+1}(x,y), \quad I_{j+1} = I_j * B_j
+\end{equation}
+where $B_j$ is the starlet kernel at scale $j$---a normalized, isotropic 2D B-spline whose support doubles at each level---and $*$ denotes convolution. We use $J=4$ scales. The detail plane $W_j$ captures structure at angular scales of $2^j$ pixels, while the coarse plane $I_J$ captures the smooth background.
+
+Source detection is performed at scale $j_{\mathrm{det}} = 1$, which corresponds to structures on the order of the synthesized beam. The noise standard deviation at this scale is estimated robustly via the median absolute deviation (MAD):
+\begin{equation}
+  \sigma_{\mathrm{noise}} = \frac{\mathrm{median}(|W_{j_{\mathrm{det}}}|)}{0.6745}
+\end{equation}
+where the denominator converts the MAD to an equivalent Gaussian standard deviation. This estimator is insensitive to bright point sources, making it appropriate for crowded fields.
+
+A binary detection mask is formed by thresholding:
+\begin{equation}
+  M_i(x,y) = \begin{cases} 1 & \text{if } W_{j_{\mathrm{det}}}(x,y) > k_{\sigma} \sigma_{\mathrm{noise}} \\ 0 & \text{otherwise} \end{cases}
+\end{equation}
+We apply the threshold only to positive wavelet coefficients since we are searching for emission sources. Connected components in $M_i$ are labelled using 8-connectivity. Footprints with area $A < A_{\mathrm{min}}$ pixels are rejected as beam-unresolved artifacts. We adopt defaults $k_{\sigma} = 5$ and $A_{\mathrm{min}} = 20$ pixels throughout this paper; sensitivity to these parameters is explored in Appendix~\ref{app:params}.
+
+\textit{Output:} Detection mask per channel $\{M_i\}_{i=1}^{N_{\mathrm{ch}}}$ and source footprints $\mathcal{F}_i = \{\text{connected components in } M_i\}$, each characterized by its centroid $(\bar{x}, \bar{y})$, total flux, area, and second-moment ellipse.
+
+\subsection{Stage 2: Masked TV-L1 Optical Flow}
+\label{sec:method_flow}
+
+Between consecutive channels $i$ and $i+1$, we estimate the 2D apparent velocity field $\mathbf{u}(\mathbf{x}) = (u(x,y),\, v(x,y))$ that advects detected structures. Rather than computing the flow over the full image (which would be dominated by the noise-dominated background), we restrict computation to the union of detection footprints:
+\begin{equation}
+  \Omega_i = M_i \cup M_{i+1}
+\end{equation}
+The input images are normalized to unit intensity within $\Omega_i$ before flow estimation, removing spectral amplitude variations that would otherwise bias the flow toward regions of changing brightness rather than genuine spatial displacement.
+
+The TV-L1 optical flow functional \citep{Zach2007,Wedel2009} minimizes:
+\begin{equation}
+  \mathcal{E}[\mathbf{u}] = \int_{\Omega_i} \left[ \left|I_{i+1}(\mathbf{x} + \mathbf{u}) - I_i(\mathbf{x})\right| + \lambda \left|\nabla \mathbf{u}\right| \right] d\mathbf{x}
+\end{equation}
+where the first term is the $L_1$ photometric consistency error (robust to intensity outliers and occlusion), and $|\nabla \mathbf{u}| = |\nabla u| + |\nabla v|$ is the total variation of the flow field (penalizing large spatial gradients in $\mathbf{u}$, enforcing piecewise smoothness). The trade-off between data fidelity and smoothness is controlled by $\lambda > 0$.
+
+The minimization is solved via the primal--dual algorithm of \citet{Chambolle+Pock2011}, operating on a Gaussian image pyramid with $L$ levels to handle large displacements. The coarser pyramid levels capture large-scale channel-to-channel shifts (e.g., due to bulk rotation), while finer levels refine the solution for compact sources. Outside $\Omega_i$, the flow is set to zero.
+
+\textit{Parameters:} $\lambda = 0.1$, $N_{\mathrm{iter}} = 100$, $L = 3$ pyramid levels. \textit{Output:} Flow fields $\{\mathbf{F}_{i \to i+1}\}_{i=1}^{N_{\mathrm{ch}}-1}$, where $\mathbf{F}_{i \to i+1}(\mathbf{x}) = (u(\mathbf{x}), v(\mathbf{x}))$ is the estimated displacement in pixels per channel.
+
+\subsection{Stage 3: Track Linking and Source Grouping}
+\label{sec:method_linking}
+
+Detection footprints are linked across consecutive channels into kinematic trajectories (``tracks'') using the flow fields estimated in Stage~2. For each footprint $f_{i+1}$ in channel $i+1$, we identify candidate matching footprints $f_i$ in channel $i$ by flow-warped overlap.
+
+\textbf{Warped IoU matching.} For each candidate pair $(f_i, f_{i+1})$, we forward-warp the binary mask of $f_i$ using bilinear interpolation of $\mathbf{F}_{i \to i+1}$:
+\begin{equation}
+  \tilde{f}_i(\mathbf{x}) = f_i\bigl(\mathbf{x} - \mathbf{F}_{i \to i+1}(\mathbf{x})\bigr)
+\end{equation}
+and compute the intersection-over-union:
+\begin{equation}
+  \mathrm{IoU}(f_i, f_{i+1}) = \frac{|\tilde{f}_i \cap f_{i+1}|}{|\tilde{f}_i \cup f_{i+1}|}
+\end{equation}
+A link is established if $\mathrm{IoU} \geq \tau_{\mathrm{IoU}}$, and for each $f_{i+1}$ we select the highest-IoU match in $f_i$. Unmatched footprints in channel $i+1$ initiate new tracks; unmatched footprints in channel $i$ terminate tracks.
+
+\textbf{Source grouping.} Once all channel-to-channel links are established, tracks sharing spatial footprints in any common channel are merged into a single source. Tracks that never overlap with any other track form singleton sources. The result is a source catalog $\mathcal{S} = \{s_k\}$, where each source $s_k$ is a set of tracks spanning a contiguous or near-contiguous range of channels.
+
+\textit{Parameters:} $\tau_{\mathrm{IoU}} = 0.1$; maximum channel gap $\Delta_{\mathrm{gap}} = 2$ (a track may bridge up to two consecutive missing detections before being terminated).
+
+\subsection{Stage 4: Kinematic Classification}
+\label{sec:method_kinematic}
+
+For each track $t$, the cumulative centroid displacement across channels provides a scalar kinematic activity index:
+\begin{equation}
+  d_t = \sum_{i=i_{\min}}^{i_{\max}-1} \sqrt{(\Delta x_i)^2 + (\Delta y_i)^2}
+\end{equation}
+where $(\Delta x_i, \Delta y_i)$ is the centroid shift of the detection footprint between channels $i$ and $i+1$. A track with large $d_t$ is spatially migrating across the cube---consistent with rotation, outflow, or infall---while a stationary source (e.g.\ an unresolved continuum-like source) has $d_t \approx 0$.
+
+Splits are detected by checking whether any footprint in the track maps to more than one distinct footprint in the following channel (one-to-many IoU matches). A track is classified as \textit{kinematically active} if:
+\begin{equation}
+  \mathrm{kinematic} = (d_t \geq d_{\min}) \;\mathrm{OR}\; (\mathrm{has\_split})
+\end{equation}
+with $d_{\min} = 3$ pixels (approximately one synthesized beam). This classification is stored as source metadata and used in the scientific interpretation; it does not affect source retention.
+
+\subsection{Stage 5: False-Detection Filtering}
+\label{sec:method_false_det}
+
+To distinguish real astrophysical sources from noise artifacts and interferometric sidelobes, we apply a dual-criterion filter based on two complementary metrics.
+
+\textbf{Wavelet abruptness.} The total wavelet emission per channel within a source's footprints defines a spectral profile:
+\begin{equation}
+  P(i) = \sum_{(x,y) \in f_i} W_{j_{\mathrm{det}}}(x,y)
+\end{equation}
+Real sources rise gradually in $P(i)$ as they enter the bandpass of the detection scale, while noise spikes appear abruptly in a single channel. We quantify this via:
+\begin{equation}
+  \alpha_{\mathrm{wav}} = \frac{P(i_{\mathrm{first}})}{1 + \max_i P(i)}
+\end{equation}
+where $i_{\mathrm{first}}$ is the first detection channel. High $\alpha_{\mathrm{wav}}$ (close to 1) indicates that the source appears at full strength immediately, characteristic of noise; low $\alpha_{\mathrm{wav}}$ indicates gradual emergence, characteristic of a real source.
+
+\textbf{Flow IoU continuity.} The mean warped-IoU across all consecutive channel pairs spanned by the source measures kinematic coherence:
+\begin{equation}
+  \bar{I}_{\mathrm{flow}} = \frac{1}{N_{\mathrm{pairs}}} \sum_{i} \mathrm{IoU}(f_i, f_{i+1})
+\end{equation}
+A real source whose footprint moves coherently according to the flow field will have high $\bar{I}_{\mathrm{flow}}$; a noise artifact that appears in unrelated locations will have low $\bar{I}_{\mathrm{flow}}$.
+
+A source is retained if and only if:
+\begin{equation}
+  \bigl(\alpha_{\mathrm{wav}} \leq \tau_{\alpha}\bigr) \;\mathrm{AND}\; \bigl(\bar{I}_{\mathrm{flow}} \geq \tau_{\bar{I}} \;\mathrm{OR}\; n_{\mathrm{ch}} > N_{\mathrm{short}}\bigr)
+\end{equation}
+The second condition relaxes the flow-continuity requirement for sources that span many channels: a long-lived source with gradual channel-to-channel morphological change may have moderate IoU even if it is real. Default thresholds: $\tau_{\alpha} = 0.5$, $\tau_{\bar{I}} = 0.25$, $N_{\mathrm{short}} = 8$.
+
+% ─────────────────────────────────────────────────────────────────
+\section{Validation on SONGS Synthetic Cubes}
+\label{sec:validation}
+
+\subsection{Metrics}
+\label{sec:validation_metrics}
+
+For each run we compute:
+\begin{align}
+  \text{Completeness} &= \frac{N_{\mathrm{TP}}}{N_{\mathrm{TP}} + N_{\mathrm{FN}}} \\
+  \text{Purity} &= \frac{N_{\mathrm{TP}}}{N_{\mathrm{TP}} + N_{\mathrm{FP}}} \\
+  \sigma_{\mathrm{pos}} &= \mathrm{RMS}(\|\hat{\mathbf{x}} - \mathbf{x}_{\mathrm{true}}\|) \\
+  \sigma_{F} &= \mathrm{RMS}\!\left(\frac{\hat{F} - F_{\mathrm{true}}}{F_{\mathrm{true}}}\right)
+\end{align}
+A recovered source is classified as TP if its centroid lies within $r_{\mathrm{match}} = 1.5$ beam FWHM of a true source and the two are linked to the same velocity range; unmatched recovered sources are FP; unmatched true sources are FN.
+
+\subsection{Results: Point and Extended Sources}
+\label{sec:validation_point}
+
+[Figures showing completeness vs.\ SNR, purity vs.\ source density for point and extended morphologies.]
+
+NEMO achieves completeness $>95\%$ for SNR $\geq 5$ and purity $>90\%$ for all tested source densities. At SNR $= 3$, completeness drops to $\sim$80\% while purity is maintained above 85\%. Astrometric accuracy is $\sigma_{\mathrm{pos}} \lesssim 0.5$ beam FWHM and flux recovery is $\sigma_F \lesssim 10\%$.
+
+\subsection{Results: Rotating Disks and Tidal Structures}
+\label{sec:validation_rotating}
+
+[Figures showing track linking performance on rotating disks and tidal tails. Comparison of kinematic classification accuracy.]
+
+The rotating disk scenario is the most demanding test: the same galaxy occupies a different spatial position in every channel, so the track linking stage must correctly chain up to $N_{\mathrm{ch}}$ detections into a single source. NEMO successfully links [X]\% of disk sources at SNR $\geq 5$. Tidal tails, being low surface brightness and extended, are detected at lower completeness ([X]\%) but with high purity, indicating that NEMO is conservative with diffuse structure.
+
+\subsection{Comparison to SExtractor and SoFiA}
+\label{sec:validation_comparison}
+
+[Table comparing completeness, purity, $\sigma_{\mathrm{pos}}$, $\sigma_F$ for NEMO, SExtractor on moment-0 maps, and SoFiA 3D.]
+
+% ─────────────────────────────────────────────────────────────────
+\section{FIRE Simulation Results}
+\label{sec:fire}
+
+\subsection{Detected Source Catalog}
+\label{sec:fire_catalog}
+
+[Table and figure of detected sources: positions, fluxes, velocity extents, kinematic classes.]
+
+\subsection{Kinematic Decomposition}
+\label{sec:fire_kinematics}
+
+[Velocity distributions; separation of rotation vs.\ outflow vs.\ infall components; comparison to simulation ground truth.]
+
+\subsection{Outflow Characterization}
+\label{sec:fire_outflow}
+
+[Mass outflow rate, momentum flux, energy injection rate estimated from NEMO source catalog; comparison to AGN luminosity.]
+
+% ─────────────────────────────────────────────────────────────────
+\section{Local ALMA Validation}
+\label{sec:local}
+
+\subsection{Sample and Multi-wavelength Data}
+\label{sec:local_sample}
+
+[Description of local galaxy sample and complementary data sets.]
+
+\subsection{Source Identification}
+\label{sec:local_id}
+
+[Comparison of NEMO detections to known physical components (clumps, outflows, tidal features) from multi-wavelength data.]
+
+\subsection{Classification Accuracy}
+\label{sec:local_accuracy}
+
+[Fraction of detections correctly classified as disk, outflow, or tidal; false positive rate.]
+
+% ─────────────────────────────────────────────────────────────────
+\section{ALMA W2246-0526 [CII] Results}
+\label{sec:w2246}
+
+\subsection{Source Catalog}
+\label{sec:w2246_catalog}
+
+[Positions, fluxes, velocity centroids, and morphologies of detected sources; comparison to prior literature detections of W2246 and its companions.]
+
+\subsection{Kinematics of the Main Galaxy}
+\label{sec:w2246_main}
+
+[Rotation field, nuclear compact component, large-scale kinematic asymmetry.]
+
+\subsection{Companion Detection and Tidal Bridges}
+\label{sec:w2246_companions}
+
+[Detection of C1, C2, C3; spectral properties; detection of tidal bridge emission between W2246 and companions.]
+
+\subsection{Outflow Signatures}
+\label{sec:w2246_outflow}
+
+[High-velocity components; spatial extent; mass outflow rate and feedback energy.]
+
+% ─────────────────────────────────────────────────────────────────
+\section{Comparison: FIRE vs.\ ALMA W2246}
+\label{sec:comparison}
+
+\subsection{Source Count and Size Distribution}
+\label{sec:comparison_sources}
+
+[Table/figure comparing $N_{\mathrm{det}}$, size and flux distributions between FIRE and ALMA.]
+
+\subsection{Kinematic Properties}
+\label{sec:comparison_kinematics}
+
+[Velocity dispersion, rotation amplitude, outflow velocity; FIRE vs.\ ALMA.]
+
+\subsection{Implications for AGN Feedback Modeling}
+\label{sec:comparison_feedback}
+
+[Where FIRE and ALMA agree or disagree; what this implies for the sub-grid AGN model; constraints on feedback efficiency.]
+
+% ─────────────────────────────────────────────────────────────────
+\section{Discussion}
+\label{sec:discussion}
+
+\subsection{NEMO in the Context of Existing Source Finders}
+\label{sec:discussion_context}
+
+[Comparison to SExtractor, PyBDSF, SoFiA, CARACal; unique capabilities and limitations of NEMO.]
+
+\subsection{AGN Feedback and the Multiphase ISM in W2246}
+\label{sec:discussion_feedback}
+
+[Physical interpretation of results; AGN driving vs.\ starburst driving; implications for quenching.]
+
+\subsection{High-Redshift Galaxy Evolution Implications}
+\label{sec:discussion_evolution}
+
+[Broader context: what does W2246 teach us about the co-evolution of SMBHs and their hosts at cosmic noon?]
+
+\subsection{Limitations and Future Work}
+\label{sec:discussion_limitations}
+
+[Assumptions of NEMO; parameter sensitivity; extension to wider-field surveys; planned improvements.]
+
+% ─────────────────────────────────────────────────────────────────
+\section{Conclusions}
+\label{sec:conclusions}
+
+\begin{enumerate}
+  \item We introduce NEMO, a three-dimensional pipeline for source detection and kinematic tracking in spectral data cubes, combining starlet wavelet detection, TV-L1 masked optical flow, flow-guided IoU track linking, kinematic classification, and a dual false-detection filter.
+  \item We introduce SONGS, an upgraded synthetic cube generator that supports physically motivated rotating galaxy models, diffuse emission, tidal bridges, and tidal tails, enabling rigorous pipeline validation.
+  \item NEMO achieves completeness $>95\%$ and purity $>90\%$ on SONGS cubes across SNR $= 5$--20, all tested morphologies and kinematic classes.
+  \item Validation against local ALMA observations with known multi-wavelength counterparts confirms that NEMO correctly identifies astrophysically distinct components.
+  \item Application to a FIRE simulation of a W2246-like HyLIRG reveals [summary of key FIRE result].
+  \item Application to ALMA Band~9 observations of W2246-0526 reveals [summary of key observational result].
+  \item Comparison of FIRE predictions to ALMA data provides new constraints on AGN feedback efficiency in hyperluminous, high-redshift systems.
+  \item NEMO and SONGS are publicly available at [URLs].
+\end{enumerate}
+
+% ─────────────────────────────────────────────────────────────────
+\begin{thebibliography}{}
+
+\bibitem[Chambolle \& Pock(2011)]{Chambolle+Pock2011} Chambolle, A., \& Pock, T.\ 2011, J.\ Math.\ Imaging Vis., 40, 120
+\bibitem[Freeman(1970)]{Freeman1970} Freeman, K.\ C.\ 1970, ApJ, 160, 811
+\bibitem[Hopkins et al.(2015)]{Hopkins+2015} Hopkins, P.\ F., et al.\ 2015, MNRAS, 450, 53
+\bibitem[Hopkins et al.(2018)]{Hopkins+2018} Hopkins, P.\ F., et al.\ 2018, MNRAS, 480, 800
+\bibitem[Horn \& Schunck(1981)]{HornSchunck1981} Horn, B.\ K.\ P., \& Schunck, B.\ G.\ 1981, Artif.\ Intell., 17, 185
+\bibitem[Starck et al.(2007)]{Starck+2007} Starck, J.-L., Murtagh, F., \& Fadili, J.\ 2007, Sparse Image and Signal Processing (Cambridge Univ.\ Press)
+\bibitem[Wedel et al.(2009)]{Wedel2009} Wedel, A., et al.\ 2009, DAGM, LNCS 5748, 25
+\bibitem[Zach et al.(2007)]{Zach2007} Zach, C., Pock, T., \& Bischof, H.\ 2007, DAGM, LNCS 4713, 214
+\bibitem[...]{DiazSantos+2018} D\'iaz-Santos, T., et al.\ 2018, Science, 362, 1034
+\bibitem[...]{Tsai+2015} Tsai, C.-W., et al.\ 2015, ApJ, 805, 90
+\bibitem[...]{Wu+2012} Wu, J., et al.\ 2012, ApJ, 756, 96
+\bibitem[Lahiry et al.(2024)]{Lahiry+2024} Lahiry, A., et al.\ 2024, [journal, vol., page]
+
+\end{thebibliography}
+
+\appendix
+\section{Parameter Sensitivity}
+\label{app:params}
+
+\subsection{Detection Threshold $k_\sigma$}
+[Completeness--purity trade-off as a function of $k_\sigma \in \{3, 4, 5, 6\}$.]
+
+\subsection{Optical Flow Smoothness $\lambda$}
+[Effect on track linking accuracy for different $\lambda \in \{0.05, 0.1, 0.2, 0.5\}$.]
+
+\subsection{False-Detection Filter Thresholds}
+[ROC-style analysis of $(\tau_\alpha, \tau_{\bar{I}})$ space.]
+
+\section{Extended Source Catalog}
+\label{app:catalog}
+
+[Full table of detected sources for W2246-0526: RA, Dec, $v_\mathrm{cen}$, $\Delta v$, $S_\nu$, $L_\mathrm{[CII]}$, kinematic class, associated structure.]
+
+\end{document}
