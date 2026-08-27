@@ -443,13 +443,38 @@ class NemoGUI(tk.Tk):
             return None
         return self._gif_master_chs[self._gif_master_idx]
 
+    @staticmethod
+    def _master_channels(per_card):
+        """Channels the shared GIF clock should step through.
+
+        The *intersection*, not the union.  Cards cover different channels —
+        flow is computed between consecutive pairs so it is always short by the
+        final channel, and the sources card only covers channels containing a
+        source.  On a union clock those cards run out of frames and
+        ``show_gif_for_channel`` leaves the previous image up, which reads as
+        the animation pausing at the end of every loop.  Intersecting means
+        every tick advances every card; the frames given up are exactly the
+        ones some card had nothing to show for.
+
+        Cards with no frames at all are ignored rather than collapsing the
+        intersection, and an empty or degenerate result falls back to the union
+        so an unusual dataset degrades to the old behaviour instead of freezing
+        on a single image.
+        """
+        lists = [set(chs) for chs in per_card if chs]
+        if not lists:
+            return []
+        union = sorted(set().union(*lists))
+        common = sorted(set.intersection(*lists))
+        return common if len(common) >= 2 else union
+
     def refresh_gif_clock(self):
-        union = set()
+        per_card = []
         for card in self.cards:
             # Prefer the lazy channel list; fall back to any eager frame dict.
-            union.update(getattr(card, "_gif_channels", None)
-                         or card._gif_frames_by_ch.keys())
-        new_chs = sorted(union)
+            per_card.append(sorted(getattr(card, "_gif_channels", None)
+                                   or card._gif_frames_by_ch.keys()))
+        new_chs = self._master_channels(per_card)
         if not new_chs:
             return
         prev_ch = self.current_gif_channel()

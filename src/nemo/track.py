@@ -76,7 +76,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 import numpy as np
-from scipy.ndimage import map_coordinates
+from scipy.ndimage import distance_transform_edt, map_coordinates
 from scipy.optimize import linear_sum_assignment
 from skimage.registration import optical_flow_tvl1
 
@@ -92,11 +92,118 @@ from .detect import (
 # Stage 1 — Masked optical flow
 # ---------------------------------------------------------------------------
 
+def signed_distance_field(mask: np.ndarray, clip: float) -> np.ndarray:
+    """Clipped signed distance transform of a boolean mask.
+
+    Positive inside the mask, negative outside, zero on the boundary, then
+    clipped to ``[-clip, +clip]``.
+
+    A binary mask carries image gradient only in the 1-2 px ring at its
+    boundary; everywhere else the field is flat, so TV-L1's data term has no
+    signal and cannot displace a footprint across empty space.  The signed
+    distance field has unit gradient *everywhere*, sloping toward the nearest
+    source, which is what lets flow bridge a gap between footprints that share
+    no pixels.  ``clip`` bounds the reach so one source's field does not
+    dominate the whole frame.
+
+    Parameters
+    ----------
+    mask :
+        Boolean (H, W).
+    clip :
+        Saturation distance in pixels.  Beyond it the field is flat again.
+
+    Returns
+    -------
+    np.ndarray
+        float32 (H, W).
+    """
+    inside  = distance_transform_edt(mask)
+    outside = distance_transform_edt(~mask)
+    return np.clip(inside - outside, -clip, clip).astype(np.float32)
+
+
+def _local_sdt_flow(
+    union_ref: np.ndarray,
+    union_tgt: np.ndarray,
+    ref_components: list,
+    window: int,
+    clip: float,
+    pad: int,
+) -> np.ndarray:
+    """Per-component signed-distance flow.
+
+    A signed distance field is *global*: its gradient at any pixel points at the
+    nearest source anywhere in the frame.  Solving one field over a crop that
+    spans several well-separated sources lets the coarse pyramid levels merge
+    them, and the solver then matches a footprint to the wrong source — which
+    shows up as a flow vector pointing backwards or sideways on a handful of
+    transitions.
+
+    Solving each component inside its own window removes the ambiguity: distant
+    sources fall outside the crop and cannot compete.  Flow is written only at
+    the component's own pixels, so components never overwrite each other.
+
+    Parameters
+    ----------
+    union_ref, union_tgt :
+        Boolean (H, W) union footprint masks of the two channels.  Only
+        *union_tgt* is used as a field; the reference field is built from each
+        component on its own (see below).
+    ref_components :
+        One boolean (H, W) mask per component in the reference channel.
+    window :
+        Half-size (px) of the square crop taken around each component centroid.
+        Must comfortably exceed the largest expected displacement.
+    clip :
+        Saturation distance for :func:`signed_distance_field`.
+    pad :
+        Extra margin (px) added around the window, keeping the variational
+        solution clear of the crop boundary.
+
+    Returns
+    -------
+    np.ndarray
+        (2, H, W) float32.  Zero outside the reference components.
+    """
+    H, W = union_ref.shape
+    flow = np.zeros((2, H, W), dtype=np.float32)
+
+    for comp in ref_components:
+        if not comp.any():
+            continue
+        cy, cx = np.argwhere(comp).mean(axis=0)
+        half = window + pad
+        y0, y1 = max(0, int(cy - half)), min(H, int(cy + half) + 1)
+        x0, x1 = max(0, int(cx - half)), min(W, int(cx + half) + 1)
+
+        # Reference side carries THIS detection only — including the channel's
+        # other components would put competing sources back into the field and
+        # reintroduce the mis-attribution this function exists to avoid.
+        sub_ref = comp[y0:y1, x0:x1]
+        # Target side is the union of the next channel's detections inside the
+        # window: the component must be free to land on any of them.
+        sub_tgt = union_tgt[y0:y1, x0:x1]
+        if not sub_ref.any() or not sub_tgt.any():
+            continue
+
+        r = signed_distance_field(sub_ref, clip).astype(np.float64)
+        t = signed_distance_field(sub_tgt, clip).astype(np.float64)
+        v, u = optical_flow_tvl1(r, t)
+
+        sub_comp = comp[y0:y1, x0:x1]
+        flow[0, y0:y1, x0:x1][sub_comp] = v[sub_comp]
+        flow[1, y0:y1, x0:x1][sub_comp] = u[sub_comp]
+
+    return flow
+
+
 def masked_flow_tvl1(
     img_ref: np.ndarray,
     img_tgt: np.ndarray,
     mask: np.ndarray,
     pad: int = 16,
+    clip_outside: bool = True,
 ) -> np.ndarray:
     """TV-L1 optical flow restricted to *mask* pixels.
 
@@ -124,8 +231,18 @@ def masked_flow_tvl1(
     mask :
         Boolean (H, W) — True where flow should be estimated.
     pad :
-        Margin (px) added around the mask bounding box before solving, to
-        isolate the in-mask solution from the crop boundary.
+        Margin (px) added around the mask bounding box before solving.  Note
+        that ``optical_flow_tvl1`` is a coarse-to-fine pyramid solver whose
+        depth follows the *cropped* size (``downscale=2``, ``min_size=16``),
+        and large displacements are only recoverable at the coarse levels.  A
+        tight crop therefore caps the maximum recoverable displacement; it is
+        not merely a speed knob.
+    clip_outside :
+        When True (default) both inputs are zeroed outside *mask* before the
+        solve.  Set False for fields that carry meaning outside the footprints
+        — notably a signed distance field, whose whole purpose is the gradient
+        in the *gap* between disjoint footprints.  The mask still sets the crop
+        and still clips the returned flow.
 
     Returns
     -------
@@ -145,11 +262,16 @@ def masked_flow_tvl1(
     x0 = max(0, int(cols[0]) - pad);  x1 = min(W, int(cols[-1]) + 1 + pad)
 
     m = mask[y0:y1, x0:x1]
-    r = (img_ref[y0:y1, x0:x1] * m).astype(np.float64)
-    t = (img_tgt[y0:y1, x0:x1] * m).astype(np.float64)
+    if clip_outside:
+        r = (img_ref[y0:y1, x0:x1] * m).astype(np.float64)
+        t = (img_tgt[y0:y1, x0:x1] * m).astype(np.float64)
+    else:
+        r = img_ref[y0:y1, x0:x1].astype(np.float64)
+        t = img_tgt[y0:y1, x0:x1].astype(np.float64)
     v, u = optical_flow_tvl1(r, t)
     sub = np.stack([v, u], axis=0).astype(np.float32)
-    sub[:, ~m] = 0.0
+    if clip_outside:
+        sub[:, ~m] = 0.0
     flow[:, y0:y1, x0:x1] = sub
     return flow
 
@@ -157,6 +279,10 @@ def masked_flow_tvl1(
 def compute_flow_sequence(
     detections: list[ChannelDetection],
     verbose: bool = False,
+    field: str = "binary",
+    pad: int = 16,
+    sdt_clip: float = 24.0,
+    local_window: int | None = None,
 ) -> list[tuple[int, int, np.ndarray, np.ndarray]]:
     """Compute masked TV-L1 flow for every consecutive detection pair.
 
@@ -182,10 +308,39 @@ def compute_flow_sequence(
     ----------
     detections :
         Ordered list of :class:`~wavelet_detections.ChannelDetection` objects.
+    field :
+        ``"binary"`` (default, original behaviour) solves on the binary union
+        masks.  ``"sdt"`` solves on clipped signed distance fields instead,
+        which extends the bridgeable displacement from ~1.9x to ~6x the source
+        radius — enough to link footprints that are fully disjoint between
+        channels.  See :func:`signed_distance_field`.
+    pad :
+        Margin (px) around the mask bounding box passed to
+        :func:`masked_flow_tvl1`.  ``optical_flow_tvl1`` is a coarse-to-fine
+        pyramid solver whose depth is set by the *cropped* image size, and
+        large displacements are only recoverable at the coarse levels — so a
+        tight crop silently caps how far flow can reach.  Raise this well above
+        the largest source radius when tracking fast-moving emission.
+    sdt_clip :
+        Saturation distance (px) for ``field="sdt"``; ignored otherwise.
+    local_window :
+        With ``field="sdt"``, solve the flow separately for each component
+        inside a window of this half-size (px) instead of once over a crop
+        spanning the whole channel.  Strongly recommended whenever a channel
+        holds more than one source: a shared crop lets the coarse pyramid
+        levels merge well-separated sources, and a footprint then gets matched
+        to the wrong one.  ``None`` keeps the single shared solve.
 
     Returns
     -------
     list of (ch_ref, ch_tgt, flow, joint_mask) tuples.
+
+    Notes
+    -----
+    ``field="sdt"`` changes the scale of every flow-derived quantity.  In
+    particular ``flow_iou`` in :func:`remove_false_detections` rises for real
+    *and* spurious sources alike, so ``flow_iou_thresh`` must be recalibrated
+    against it — the default 0.25 is tuned for ``field="binary"``.
     """
     H, W = detections[0].image.shape
     n_pairs = len(detections) - 1
@@ -215,9 +370,34 @@ def compute_flow_sequence(
             # of the raw intensity images.  This enforces brightness constancy
             # (1 → 1, 0 → 0) so the flow encodes morphological shift, not
             # intensity change.
-            ref_field = union_ref.astype(np.float32)
-            tgt_field = union_tgt.astype(np.float32)
-            flow = masked_flow_tvl1(ref_field, tgt_field, joint_mask)
+            if field == "sdt" and local_window is not None:
+                # One solve per component, each in its own window.
+                flow = _local_sdt_flow(
+                    union_ref, union_tgt, d_ref.footprint_masks,
+                    window=local_window, clip=sdt_clip, pad=pad,
+                )
+                mask_px = int(joint_mask.sum())
+                u, v = flow[1], flow[0]
+                mag = float(np.hypot(u[joint_mask], v[joint_mask]).max())
+                mag_max_all = max(mag_max_all, mag)
+                results.append((d_ref.channel, d_tgt.channel, flow, joint_mask))
+                if verbose:
+                    flag = "·" if mag < 0.1 else ("▸" if mag < 1.0 else "▶")
+                    print(f"  {flag} ch {d_ref.channel:4d}→{d_tgt.channel:<4d}  "
+                          f"mask {mask_px:6d} px  peak flow {mag:.3f} px")
+                continue
+            if field == "sdt":
+                # Unit-gradient field everywhere -> flow can cross gaps between
+                # footprints that share no pixels.
+                ref_field = signed_distance_field(union_ref, sdt_clip)
+                tgt_field = signed_distance_field(union_tgt, sdt_clip)
+            else:
+                ref_field = union_ref.astype(np.float32)
+                tgt_field = union_tgt.astype(np.float32)
+            flow = masked_flow_tvl1(
+                ref_field, tgt_field, joint_mask, pad=pad,
+                clip_outside=(field != "sdt"),
+            )
             mask_px = int(joint_mask.sum())
             u, v = flow[1], flow[0]
             mag = float(np.hypot(u[joint_mask], v[joint_mask]).max()) if joint_mask.any() else 0.0
@@ -326,6 +506,15 @@ def link_tracks_per_scale(
     detections_per_scale : dict[int, list[ChannelDetection]]
         scale → detections (one per channel at that scale)
     min_match_overlap : int
+    max_advect_px :
+        Reject a continuation whose advected footprint centroid moved further
+        than this many pixels in one channel step.  ``None`` (default) means no
+        cap, matching the original behaviour.  A cap matters when flow is
+        computed on a signed distance field: that field's gradient points at
+        the nearest source from *any* distance, so a track whose source has
+        genuinely vanished gets dragged onto an unrelated neighbour instead of
+        being deactivated.  Set it a little above the largest physically
+        plausible per-channel displacement.
     max_gap_channels : int
     verbose : bool
 
@@ -386,6 +575,7 @@ def link_tracks(
     flow_seq: list[tuple[int, int, np.ndarray, np.ndarray]],
     min_match_overlap: int = 5,
     max_gap_channels: int = 5,
+    max_advect_px: float | None = None,
     verbose: bool = False,
 ) -> list[dict]:
     """Link per-channel component detections into multi-channel tracks.
@@ -500,18 +690,28 @@ def link_tracks(
         det_to_track: dict[int, dict] = {}
 
         for r, c in zip(row_ind, col_ind):
-            if -cost[r, c] >= min_match_overlap:
-                t = active[r]
-                t['trajectory'].append(
-                    (ch_tgt, float(d_tgt.peaks[c][0]), float(d_tgt.peaks[c][1]))
-                )
-                t['masks'][ch_tgt]   = d_tgt.footprint_masks[c]
-                adv_masks[t['id']] = d_tgt.footprint_masks[c]
-                t['gap_age'] = 0
-                matched_pred.add(r)
-                matched_det.add(c)
-                det_to_track[c] = t
-                _v_matched_b += 1
+            if -cost[r, c] < min_match_overlap:
+                continue
+            t = active[r]
+            if max_advect_px is not None:
+                # Distance the flow actually carried this footprint.
+                src_m = adv_masks[t['id']]
+                adv_m = adv_maps[t['id']] > 0.3
+                if src_m.any() and adv_m.any():
+                    sy, sx = np.argwhere(src_m).mean(axis=0)
+                    ay, ax = np.argwhere(adv_m).mean(axis=0)
+                    if np.hypot(ay - sy, ax - sx) > max_advect_px:
+                        continue
+            t['trajectory'].append(
+                (ch_tgt, float(d_tgt.peaks[c][0]), float(d_tgt.peaks[c][1]))
+            )
+            t['masks'][ch_tgt] = d_tgt.footprint_masks[c]
+            adv_masks[t['id']] = d_tgt.footprint_masks[c]
+            t['gap_age'] = 0
+            matched_pred.add(r)
+            matched_det.add(c)
+            det_to_track[c] = t
+            _v_matched_b += 1
 
         # C. Unmatched predictions: merge check + advected mask freeze + centroid extrapolation.
         for r, t in enumerate(active):

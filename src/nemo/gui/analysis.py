@@ -20,7 +20,11 @@ def _mpl_theme():
     light = C._current_theme == "light"
     return dict(
         fig_bg="#ffffff" if light else "#0a0a14",
-        fg="#1a1a2a" if light else "white",
+        # Pure black in light mode: every piece of figure text — colourbar
+        # labels and tick labels, axis labels, panel tags, legend entries —
+        # routes through this one key, and the old near-navy read as grey
+        # against a white figure background.
+        fg="#000000" if light else "white",
         spine="#b0b0c8" if light else "#555577",
         m1_bg="#dfe2ec" if light else "#222236",
         legend_bg="#eef0f6" if light else "#16213e",
@@ -139,7 +143,8 @@ class CombinedAnalysisWindow(TransportControls, tk.Toplevel):
 
     def __init__(self, master, cube, tracks, sources, vel_array=None,
                  hierarchical_sources=None, tracks_per_scale=None,
-                 beam=None, pixscale=None, kpc_per_pix=None):
+                 beam=None, pixscale=None, kpc_per_pix=None,
+                 coarse_scale=None):
         super().__init__(master)
         self.title("Source Analysis — Channels, Moments & Spectra")
         self.configure(bg=C.BG)
@@ -201,7 +206,8 @@ class CombinedAnalysisWindow(TransportControls, tk.Toplevel):
             self._tree = SourceTreePanel(body, hierarchical_sources,
                                          tracks_per_scale, on_change=self._draw,
                                          mode="multi", title="Source tree",
-                                         default_active_letter="B")
+                                         default_active_letter="B",
+                                         coarse_scale=coarse_scale)
             self._tree.pack(side=tk.LEFT, fill=tk.Y, padx=(4, 8), pady=8)
             self._units = {}
             for hid, ch_dict in self._tree.masks_by_ch.items():
@@ -832,7 +838,7 @@ class IndividualAnalysisWindow(TransportControls, tk.Toplevel):
 
     def __init__(self, master, cube, tracks, sources, vel_array=None,
                  hierarchical_sources=None, tracks_per_scale=None,
-                 beam=None, pixscale=None):
+                 beam=None, pixscale=None, coarse_scale=None):
         super().__init__(master)
         self.title("Individual Source Analysis")
         self.configure(bg=C.BG)
@@ -902,7 +908,8 @@ class IndividualAnalysisWindow(TransportControls, tk.Toplevel):
             self._tree = SourceTreePanel(right, hierarchical_sources,
                                          tracks_per_scale,
                                          on_change=self._on_source_change,
-                                         mode="single", title="Choose source")
+                                         mode="single", title="Choose source",
+                                         coarse_scale=coarse_scale)
             self._tree.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
             right.configure(width=max(self._tree.tree_width + 18, 190))
             right.pack_propagate(False)

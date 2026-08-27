@@ -34,6 +34,16 @@ def _subsample_for_stats(cube: np.ndarray, max_elems: int = 4_000_000):
 def _contour_color():
     return "black" if C._current_theme == "light" else "white"
 
+def _fig_text():
+    """Colour for text drawn *inside* figures (labels, ticks, colourbars).
+
+    Black in light mode: the grey used for surrounding widget captions is too
+    faint against a white figure background, where the eye expects axis and
+    colourbar text to read as plain black.
+    """
+    return "#000000" if C._current_theme == "light" else "#ffffff"
+
+
 def _accent():
     return C.LOG_TXT if C._current_theme == "light" else C.ACCENT
 
@@ -987,7 +997,7 @@ class SliceViewer(TransportControls, tk.Toplevel):
         """Clear and replot the spectrum (Total + one curve per visible source)."""
         ax = self._spec_ax
         ax.clear()
-        txt_col = C.STEP_LABEL_TXT
+        txt_col = _fig_text()      # spectrum axis labels / ticks
         ax.set_facecolor(C.LOG_BG)
         ax.grid(True, color=C.DIM_TXT, alpha=0.22, linewidth=0.4)
         ax.set_axisbelow(True)
@@ -1066,10 +1076,11 @@ class SliceViewer(TransportControls, tk.Toplevel):
         sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
         sm.set_array([])
         cb = self._fig.colorbar(sm, cax=self._ax_cb)
-        cb.ax.tick_params(colors=C.STEP_LABEL_TXT, labelsize=9, length=3)
+        _ftc = _fig_text()
+        cb.ax.tick_params(colors=_ftc, labelsize=9, length=3)
         cb.outline.set_edgecolor(C.DIM)
-        plt.setp(plt.getp(cb.ax, "yticklabels"), color=C.STEP_LABEL_TXT, fontsize=9)
-        cb.set_label(self._flux_unit, color=C.STEP_LABEL_TXT, fontsize=9, labelpad=6)
+        plt.setp(plt.getp(cb.ax, "yticklabels"), color=_ftc, fontsize=9)
+        cb.set_label(self._flux_unit, color=_ftc, fontsize=9, labelpad=6)
 
         contour_col = _contour_color()
 
@@ -1764,7 +1775,7 @@ class ScaleViewer(tk.Toplevel):
 
         # Larger cells than the old shared figure, since each now hosts its own
         # controls and the window is sized to match.
-        cell_px = max(int(self._VW / n_cols), 150)
+        cell_px = max(int(self._VW * 0.86 / n_cols), 140)
         dpi = 96
 
         grid = tk.Frame(self._fig_frame, bg=C.LOG_BG)
@@ -1915,7 +1926,12 @@ class ScaleViewer(tk.Toplevel):
         # Get selected scales for highlighting
         is_multi_scale = self._multi_scale_enabled.get()
         if is_multi_scale:
-            selected_scales = {s for s in range(1, n_detail + 1) if self._scale_selections[s].get()}
+            # range runs to n_scales, not n_detail: the coarse residual (the
+            # 'C' pill) is a selectable detection band, and stopping a band
+            # early meant its panel and title never highlighted when picked.
+            selected_scales = {s for s in range(1, n_scales + 1)
+                               if s in self._scale_selections
+                               and self._scale_selections[s].get()}
         else:
             chosen = int(self._selected_scale.get())
             selected_scales = {chosen}
@@ -1949,7 +1965,7 @@ class ScaleViewer(tk.Toplevel):
             is_chosen = scale in selected_scales
             label = "Coarse Scale" if is_coarse else f"Scale {scale}"
             ax.set_title(label,
-                         color=_accent() if is_chosen else C.STEP_LABEL_TXT,
+                         color=_accent() if is_chosen else _fig_text(),
                          fontsize=8, pad=6,
                          fontweight="bold" if is_chosen else "normal")
             for sp in ax.spines.values():

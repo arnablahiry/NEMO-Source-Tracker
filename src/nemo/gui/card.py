@@ -34,8 +34,14 @@ def _frame_to_pil(fig, dpi, hires_factor: int = 3):
     """
     from PIL import Image as PilImage
     buf = io.BytesIO()
+    # No bbox_inches="tight": it *expands* the saved area to enclose anything
+    # drawn outside the axes (a source label hugging the frame edge, say), which
+    # both introduced a strip of figure background at that edge and made the
+    # saved size vary frame to frame, so the resize below squashed each frame by
+    # a different amount.  The axes already spans [0, 0, 1, 1], so saving the
+    # figure as-is gives exactly the image, identically sized every frame.
     fig.savefig(buf, format="png", dpi=dpi * hires_factor,
-                bbox_inches="tight", pad_inches=0, facecolor="#0a0a14")
+                pad_inches=0, facecolor=C.LOG_BG)
     plt.close(fig)
     buf.seek(0)
     return PilImage.open(buf).copy().resize(
@@ -80,7 +86,7 @@ def _wavelet_renderer(cube: np.ndarray, detections: list,
 
     def render(ch):
         d = det_by_ch[ch]
-        fig = plt.Figure(figsize=(fsz, fsz), dpi=dpi, facecolor="#0a0a14")
+        fig = plt.Figure(figsize=(fsz, fsz), dpi=dpi, facecolor=C.LOG_BG)
         ax  = fig.add_axes([0, 0, 1, 1]);  ax.set_axis_off()
         ax.imshow(cube[ch], cmap=cmap, norm=norm, origin="lower")
         for mask in d.footprint_masks:
@@ -120,7 +126,7 @@ def _multi_scale_renderer(cube: np.ndarray, multi_scale_dets: list,
 
     def render(ch):
         sd = sd_by_ch[ch]
-        fig = plt.Figure(figsize=(fsz, fsz), dpi=dpi, facecolor="#0a0a14")
+        fig = plt.Figure(figsize=(fsz, fsz), dpi=dpi, facecolor=C.LOG_BG)
         ax  = fig.add_axes([0, 0, 1, 1]);  ax.set_axis_off()
         ax.imshow(cube[ch], cmap=cmap, norm=norm, origin="lower")
         for scale_idx in all_scales:
@@ -161,7 +167,7 @@ def _flow_renderer(cube: np.ndarray, flow_seq: list,
 
     def render(ch):
         flow = flow_by_ch[ch]
-        fig = plt.Figure(figsize=(fsz, fsz), dpi=dpi, facecolor="#0a0a14")
+        fig = plt.Figure(figsize=(fsz, fsz), dpi=dpi, facecolor=C.LOG_BG)
         ax  = fig.add_axes([0, 0, 1, 1]);  ax.set_axis_off()
         ax.imshow(cube[ch], cmap=cmap, norm=norm, origin="lower")
         ys = np.arange(0, H, qs);  xs = np.arange(0, W, qs)
@@ -266,7 +272,7 @@ def _sources_renderer(cube: np.ndarray, tracks: list, sources: list,
     channels = sorted({ch for d in src_ch_masks.values() for ch in d})
 
     def render(ch):
-        fig = plt.Figure(figsize=(fsz, fsz), dpi=dpi, facecolor="#0a0a14")
+        fig = plt.Figure(figsize=(fsz, fsz), dpi=dpi, facecolor=C.LOG_BG)
         ax  = fig.add_axes([0, 0, 1, 1]);  ax.set_axis_off()
         ax.imshow(cube[ch], cmap=cmap, norm=norm, origin="lower")
 
@@ -341,7 +347,7 @@ def _multi_scale_flow_renderer(cube, flow_seq_per_scale, detections_per_scale,
     channels = sorted({cr for fseq in flow_seq_per_scale.values() for cr, *_ in fseq})
 
     def render(ch):
-        fig = plt.Figure(figsize=(fsz, fsz), dpi=dpi, facecolor="#0a0a14")
+        fig = plt.Figure(figsize=(fsz, fsz), dpi=dpi, facecolor=C.LOG_BG)
         ax  = fig.add_axes([0, 0, 1, 1]);  ax.set_axis_off()
         ax.imshow(cube[ch], cmap=cmap, norm=norm, origin="lower")
 
@@ -424,7 +430,7 @@ def _hierarchical_sources_renderer(cube, hierarchical_sources, tracks_per_scale,
     channels = sorted({ch for d in ch_masks.values() for ch in d})
 
     def render(ch):
-        fig = plt.Figure(figsize=(fsz, fsz), dpi=dpi, facecolor="#0a0a14")
+        fig = plt.Figure(figsize=(fsz, fsz), dpi=dpi, facecolor=C.LOG_BG)
         ax  = fig.add_axes([0, 0, 1, 1]);  ax.set_axis_off()
         ax.imshow(cube[ch], cmap=cmap, norm=norm, origin="lower")
 
@@ -1031,7 +1037,7 @@ class CubeCard(tk.Frame):
         dpi = 96
         cmap = "cubehelix_r" if C._current_theme == "light" else "inferno"
         contour_color = "black" if C._current_theme == "light" else "white"
-        fig = plt.Figure(figsize=(CARD_W/dpi, CARD_H/dpi), dpi=dpi, facecolor="#0a0a14")
+        fig = plt.Figure(figsize=(CARD_W/dpi, CARD_H/dpi), dpi=dpi, facecolor=C.LOG_BG)
         ax  = fig.add_axes([0, 0, 1, 1])
         ax.set_axis_off()
         vmin = float(np.nanmin(mom0))
@@ -1066,7 +1072,7 @@ class CubeCard(tk.Frame):
             from PIL import Image as PilImage
             buf = io.BytesIO()
             fig.savefig(buf, format="png", dpi=dpi, bbox_inches="tight",
-                        pad_inches=0, facecolor="#0a0a14")
+                        pad_inches=0, facecolor=C.LOG_BG)
             buf.seek(0)
             self._cached_fig_pil = PilImage.open(buf).copy().resize(
                 (CARD_W, CARD_H), PilImage.LANCZOS).convert("RGB")
@@ -1085,7 +1091,7 @@ class CubeCard(tk.Frame):
         from PIL import Image as PilImage
         buf = io.BytesIO()
         fig.savefig(buf, format="png", dpi=dpi, bbox_inches="tight",
-                    pad_inches=0, facecolor="#0a0a14")
+                    pad_inches=0, facecolor=C.LOG_BG)
         plt.close(fig)
         buf.seek(0)
         return PilImage.open(buf).copy().resize(
@@ -1135,13 +1141,13 @@ class CubeCard(tk.Frame):
         self._clear_preview()
         dpi = 72
         cmap = "cubehelix_r" if C._current_theme == "light" else "inferno"
-        fig = plt.Figure(figsize=(CARD_W/dpi, CARD_H/dpi), dpi=dpi, facecolor="#0a0a14")
+        fig = plt.Figure(figsize=(CARD_W/dpi, CARD_H/dpi), dpi=dpi, facecolor=C.LOG_BG)
         for i in range(n_panels):
             ax = fig.add_subplot(n_rows, n_cols, i + 1)
             ax.set_xticks([]); ax.set_yticks([])
-            ax.set_facecolor("#0a0a14")
+            ax.set_facecolor(C.LOG_BG)
             for sp in ax.spines.values():
-                sp.set_edgecolor("#333355"); sp.set_linewidth(0.3)
+                sp.set_edgecolor(C.DIM); sp.set_linewidth(0.3)
             band = np.clip(coeffs[i], 0, None)
             vmax = float(np.nanpercentile(band, 99.5)) if band.max() > 0 else 1e-9
             ax.imshow(band, cmap=cmap, origin="lower", vmin=-vmax, vmax=vmax)
@@ -1787,7 +1793,22 @@ class CubeCard(tk.Frame):
                                tracks_per_scale=getattr(self, "_tracks_per_scale", None),
                                beam=c0.beam if c0 else None,
                                pixscale=c0.pixscale if c0 else None,
-                               kpc_per_pix=c0.kpc_per_pix if c0 else None)
+                               kpc_per_pix=c0.kpc_per_pix if c0 else None,
+                               coarse_scale=self._coarse_scale())
+
+    def _coarse_scale(self):
+        """1-based index of the coarse residual plane, if detection used it.
+
+        Detail bands run 1 … scales-1, so the coarse residual is band `scales`.
+        Returned only when it was actually a detection band, otherwise the tree
+        has no coarse layer to label.
+        """
+        wav_p = getattr(self, "_wav_params", None) or {}
+        n = wav_p.get("scales")
+        if not n:
+            return None
+        ds = wav_p.get("detect_scales") or []
+        return int(n) if int(n) in ds else None
 
     def _individual_analysis(self):
         c0 = self._app.cards[0] if self._app else None
@@ -1800,7 +1821,8 @@ class CubeCard(tk.Frame):
                                  hierarchical_sources=hier,
                                  tracks_per_scale=getattr(self, "_tracks_per_scale", None),
                                  beam=c0.beam if c0 else None,
-                                 pixscale=c0.pixscale if c0 else None)
+                                 pixscale=c0.pixscale if c0 else None,
+                                 coarse_scale=self._coarse_scale())
 
     def _view_flow(self):
         if not self.flow_seq:
